@@ -32,7 +32,7 @@ export interface SpeechRecognizeEvent {
   /**
    * recorded file path if form data not set
    */
-  file: string;
+  filePath: string;
   /**
    * response from speechace api
    */
@@ -87,15 +87,15 @@ export interface FormData {
    * includes fluency scoring for this request.
    * To use this field you must have a Speechace API PRO key.
    */
-  includeFluency: 1 | undefined;
+  includeFluency?: 1;
   /**
    * Include intonation score (beta)
    */
-  includeIntonation: 1 | undefined;
+  includeIntonation?: 1;
   /**
    * Include lexical stress (beta)
    */
-  stress_version: 0.8 | undefined;
+  stressVersion?: 0.8;
   /**
    * A phoneme list to score.
    */

@@ -47,14 +47,13 @@ class VoiceRecorder(private var filePath: String, private val mCallback: Callbac
    * Activates Noise Suppressor during recording if the device implements noise
    * suppression.
    */
-  var noiseSuppressorActive: Boolean = false
+  var noiseSuppressorActive: Boolean = true
 
   /**
    * The ID of the audio session this WaveRecorder belongs to.
    * The default value is -1 which means no audio session exist.
    */
-  var audioSessionId: Int = -1
-    private set
+  private var audioSessionId: Int = -1
 
   private var isRecording = false
   private var isPaused = false

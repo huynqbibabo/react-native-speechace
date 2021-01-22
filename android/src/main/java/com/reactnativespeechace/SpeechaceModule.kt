@@ -4,6 +4,9 @@ import android.util.Log
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.asRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
@@ -57,15 +60,13 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   }
 
   @ReactMethod
-  fun start(params: ReadableMap?, options: ReadableMap?, promise: Promise) {
+  fun start(params: ReadableMap, options: ReadableMap?, promise: Promise) {
     if (apiKey.isNullOrEmpty()) promise.reject("api_missing", "Set a valid api key to start!")
     if (state != moduleStates.none) {
       promise.reject("-2", "Process already running!")
       return
     }
-    if (params != null) {
-      queryParams = params.toHashMap();
-    }
+    queryParams = params.toHashMap()
     if (options != null) {
       if (!options.isNull("audioFile")) {
         workingFile = options.getString("audioFile")
@@ -109,7 +110,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   fun cancel(promise: Promise) {
     stopVoiceRecorder()
     if (mClient != null) {
-      cancelCallWithTag(mClient!!, TAG)
+      cancelCallWithTag(mClient!!)
       mRequest = null
       mClient = null
     }
@@ -124,27 +125,43 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       mClient = OkHttpClient().newBuilder()
         .build()
       val file = File(workingFile)
-      val body: RequestBody = MultipartBody.Builder().setType(MultipartBody.FORM)
-        .addFormDataPart("text", "apple")
-        .addFormDataPart("user_audio_file", file.name,
-          RequestBody.create(MediaType.parse("application/octet-stream"), file))
-        .build()
+      val formDataBuilder = MultipartBody.Builder().setType(MultipartBody.FORM);
+      if (formData != null) {
+        for ((key, value) in formData!!) {
+          formDataBuilder.addFormDataPart(key, value.toString())
+        }
+      }
+      formDataBuilder.addFormDataPart("user_audio_file", file.name,
+        file.asRequestBody("application/octet-stream".toMediaTypeOrNull()))
+      val body = formDataBuilder.build()
       if (mClient != null) {
-        cancelCallWithTag(mClient!!, TAG)
+        cancelCallWithTag(mClient!!)
+      }
+
+      val urlBuilder = HttpUrl.Builder()
+      urlBuilder.scheme("https")
+        .host("api2.speechace.com")
+        .addPathSegments("api/scoring/text/v0.5/json")
+        .addQueryParameter("key", apiKey)
+      if (queryParams != null) {
+        for ((key, value) in queryParams!!) {
+          urlBuilder.addQueryParameter(key, value.toString())
+        }
       }
       mRequest = Request.Builder()
-        .url("https://api2.speechace.com/api/scoring/text/v0.5/json?key=$apiKey&dialect=en-us&user_id=XYZ-ABC-99001")
+        .url(urlBuilder.build())
         .tag(TAG)
         .method("POST", body)
         .build()
-      val response: Response = mClient!!.newCall(mRequest).execute()
-      val jsonString: String? = response.body()?.string()
+      Log.i(TAG, "makeRequest: ${mRequest!!.url}")
+      val response: Response = mClient!!.newCall(mRequest!!).execute()
+      val jsonString: String? = response.body?.string()
       Log.i(TAG, "stop: $response")
       val jObject = JSONObject(jsonString)
       Log.i(TAG, "jobject: $jObject")
 
-      val params = Arguments.createMap()
-      params.putString("response", jsonString)
+      val params = convertJsonToMap(jObject)
+      params.putString("filePath", workingFile)
       sendJSEvent(moduleEvents.onSpeechRecognized, params)
     } catch (e: Exception) {
       e.printStackTrace()
@@ -152,12 +169,12 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     }
   }
 
-  private fun cancelCallWithTag(client: OkHttpClient, tag: String?) {
-    for (call in client.dispatcher().queuedCalls()) {
-      if (call.request().tag()!! == tag) call.cancel()
+  private fun cancelCallWithTag(client: OkHttpClient) {
+    for (call in client.dispatcher.queuedCalls()) {
+      if (call.request().tag()!! == TAG) call.cancel()
     }
-    for (call in client.dispatcher().runningCalls()) {
-      if (call.request().tag()!! == tag) call.cancel()
+    for (call in client.dispatcher.runningCalls()) {
+      if (call.request().tag()!! == TAG) call.cancel()
     }
   }
 
@@ -228,6 +245,80 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     reactApplicationContext
       .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
       .emit(eventName, params)
+  }
+
+  private fun convertJsonToMap(jsonObject: JSONObject): WritableMap {
+    try {
+      val map: WritableMap = WritableNativeMap()
+      val iterator = jsonObject.keys()
+      while (iterator.hasNext()) {
+        val key = iterator.next()
+        when (val value = jsonObject[key]) {
+          is JSONObject -> {
+            map.putMap(key, convertJsonToMap(value))
+          }
+          is JSONArray -> {
+            map.putArray(key, convertJsonToArray(value))
+          }
+          is Boolean -> {
+            map.putBoolean(key, value)
+          }
+          is Int -> {
+            map.putInt(key, value)
+          }
+          is Double -> {
+            map.putDouble(key, value)
+          }
+          is String -> {
+            map.putString(key, value)
+          }
+          else -> {
+            map.putString(key, value.toString())
+          }
+        }
+      }
+      return map
+    } catch (e: Exception) {
+      handleErrorEvent(e)
+      e.printStackTrace()
+      return Arguments.createMap()
+    }
+  }
+
+  private fun convertJsonToArray(jsonArray: JSONArray): WritableArray? {
+    try {
+      val array: WritableArray = WritableNativeArray()
+      for (i in 0 until jsonArray.length()) {
+        when (val value = jsonArray[i]) {
+            is JSONObject -> {
+              array.pushMap(convertJsonToMap(value))
+            }
+          is JSONArray -> {
+            array.pushArray(convertJsonToArray(value))
+          }
+          is Boolean -> {
+            array.pushBoolean(value)
+          }
+          is Int -> {
+            array.pushInt(value)
+          }
+          is Double -> {
+            array.pushDouble(value)
+          }
+          is String -> {
+            array.pushString(value)
+          }
+          else -> {
+            array.pushString(value.toString())
+          }
+        }
+      }
+      return array
+    } catch (e: Exception) {
+      handleErrorEvent(e)
+      e.printStackTrace()
+      return null
+    }
   }
 
   companion object {

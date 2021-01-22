@@ -1,5 +1,6 @@
 import SpeechAce, {
   SpeechErrorEvent,
+  SpeechRecognizeEvent,
   VoiceEvent,
 } from 'react-native-speechace';
 import React, { useEffect } from 'react';
@@ -53,11 +54,12 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    // SpeechAce.setApiKey('key_____');
+    SpeechAce.setApiKey('key_____');
     SpeechAce.onVoice(onVoice);
     SpeechAce.onVoiceStart(onVoiceStart);
     SpeechAce.onVoiceEnd(onVoiceEnd);
     SpeechAce.onSpeechError(onSpeechError);
+    SpeechAce.onSpeechRecognized(onSpeechRecognized);
     return () => {
       SpeechAce.removeListeners();
     };
@@ -79,8 +81,15 @@ const App = () => {
     console.log('onVoiceEnd: ');
   };
 
+  const onSpeechRecognized = (_e: SpeechRecognizeEvent) => {
+    console.log('onSpeechRecognized', _e);
+  };
+
   const start = async () => {
-    await SpeechAce.start();
+    await SpeechAce.start(
+      { dialect: 'en-us', userId: 'test-user-id' },
+      { includeFluency: 1, includeIntonation: 1 }
+    );
   };
 
   const stop = async () => {
