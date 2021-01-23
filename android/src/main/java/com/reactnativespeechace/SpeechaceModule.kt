@@ -3,6 +3,7 @@ package com.reactnativespeechace
 import android.util.Log
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
+import com.google.common.base.CaseFormat
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -66,9 +67,10 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       promise.reject("-2", "Process already running!")
       return
     }
+    Log.i(TAG, "start: $options")
     queryParams = params.toHashMap()
     if (options != null) {
-      if (!options.isNull("audioFile")) {
+      if (options.getString("audioFile") != null) {
         workingFile = options.getString("audioFile")
       }
       formData = options.toHashMap()
@@ -98,6 +100,10 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
 
   @ReactMethod
   fun stop(promise: Promise) {
+    if (state == moduleStates.none) {
+      promise.resolve(state)
+      return
+    }
     synchronized(Any()) {
       stopVoiceRecorder()
       state = moduleStates.recognizing
@@ -121,8 +127,12 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   }
 
   private fun makeRequest() {
+    if (workingFile == null) {
+      sendJSErrorEvent("There no audio file to score!")
+      return
+    }
     try {
-      mClient = OkHttpClient().newBuilder()
+      if (mClient == null) mClient = OkHttpClient().newBuilder()
         .build()
       val file = File(workingFile)
       val formDataBuilder = MultipartBody.Builder().setType(MultipartBody.FORM);
@@ -153,19 +163,28 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         .tag(TAG)
         .method("POST", body)
         .build()
-      Log.i(TAG, "makeRequest: ${mRequest!!.url}")
       val response: Response = mClient!!.newCall(mRequest!!).execute()
       val jsonString: String? = response.body?.string()
-      Log.i(TAG, "stop: $response")
       val jObject = JSONObject(jsonString)
-      Log.i(TAG, "jobject: $jObject")
 
-      val params = convertJsonToMap(jObject)
+      val params = Arguments.createMap()
       params.putString("filePath", workingFile)
+      params.putMap("response", convertJsonToMap(jObject))
       sendJSEvent(moduleEvents.onSpeechRecognized, params)
+
+      state = moduleStates.none
+      response.body?.close()
+      mRequest = null
+      mClient = null
+      workingFile = null
     } catch (e: Exception) {
       e.printStackTrace()
       handleErrorEvent(e)
+
+      state = moduleStates.none
+      mRequest = null
+      mClient = null
+      workingFile = null
     }
   }
 
@@ -254,26 +273,27 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       while (iterator.hasNext()) {
         val key = iterator.next()
         when (val value = jsonObject[key]) {
+
           is JSONObject -> {
-            map.putMap(key, convertJsonToMap(value))
+            map.putMap(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, key), convertJsonToMap(value))
           }
           is JSONArray -> {
-            map.putArray(key, convertJsonToArray(value))
+            map.putArray(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, key), convertJsonToArray(value))
           }
           is Boolean -> {
-            map.putBoolean(key, value)
+            map.putBoolean(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, key), value)
           }
           is Int -> {
-            map.putInt(key, value)
+            map.putInt(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, key), value)
           }
           is Double -> {
-            map.putDouble(key, value)
+            map.putDouble(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, key), value)
           }
           is String -> {
-            map.putString(key, value)
+            map.putString(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, key), value)
           }
           else -> {
-            map.putString(key, value.toString())
+            map.putString(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, key), value.toString())
           }
         }
       }

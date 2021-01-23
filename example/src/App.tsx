@@ -87,8 +87,14 @@ const App = () => {
 
   const start = async () => {
     await SpeechAce.start(
-      { dialect: 'en-us', userId: 'test-user-id' },
-      { includeFluency: 1, includeIntonation: 1 }
+      {
+        userId: 'test-speechace-user-id',
+      },
+      {
+        text: 'organization',
+        // includeFluency: 1,
+        // includeIntonation: 1,
+      }
     );
   };
 

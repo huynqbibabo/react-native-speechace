@@ -171,18 +171,4 @@ class VoiceRecorder(private var filePath: String, private val mCallback: Callbac
   private fun isAudioRecorderInitialized(): Boolean =
     this::audioRecorder.isInitialized && audioRecorder.state == AudioRecord.STATE_INITIALIZED
 
-//  fun pauseRecording() {
-//    isPaused = true
-//    onStateChangeListener?.let {
-//      it(RecorderState.PAUSE)
-//    }
-//  }
-//
-//  fun resumeRecording() {
-//    isPaused = false
-//    onStateChangeListener?.let {
-//      it(RecorderState.RECORDING)
-//    }
-//  }
-
 }
