@@ -92,7 +92,9 @@ const App = () => {
       },
       {
         text: 'organization',
-        // includeFluency: 1,
+        audioFile:
+          '/var/mobile/Containers/Data/Application/358F4344-5D0B-4082-AB80-7DEAEBD25BA1/Documents/1611420490062.363037.wav',
+        includeFluency: 1,
         // includeIntonation: 1,
       }
     );
