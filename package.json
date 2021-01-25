@@ -1,6 +1,6 @@
 {
   "name": "react-native-speechace",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "SpeechAce module for react native",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
