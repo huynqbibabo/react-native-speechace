@@ -153,9 +153,8 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       val urlBuilder = HttpUrl.Builder()
       urlBuilder.scheme("https")
         .host("api2.speechace.com")
-//        .addPathSegments("api/scoring/text/v0.5/json")
         .addQueryParameter("key", apiKey)
-      if (dialect == "en-gb") {
+      if (dialect == "en-us") {
         urlBuilder.addPathSegments("api/scoring/text/v0.5/json")
       } else {
         urlBuilder.addPathSegments("api/scoring/text/v0.1/json")
