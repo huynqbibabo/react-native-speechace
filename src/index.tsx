@@ -1,4 +1,5 @@
 import { NativeEventEmitter, NativeModules } from 'react-native';
+import type { SpeechResponse } from './types';
 
 const SpeechaceModule = NativeModules.Speechace;
 
@@ -36,9 +37,7 @@ export interface SpeechRecognizeEvent {
   /**
    * response from Speechace api
    */
-  response: {
-    [key: string]: any;
-  };
+  response: SpeechResponse;
 }
 
 export interface QueryParams {
@@ -193,3 +192,4 @@ class Speechace {
 }
 
 export default new Speechace();
+export * from './types';

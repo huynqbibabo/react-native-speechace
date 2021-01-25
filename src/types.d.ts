@@ -1,20 +1,20 @@
-interface ChildPhone {
+export interface ChildPhone {
   soundMostLike: string;
   qualityScore: number;
   extent: number[];
 }
 
-interface PhoneScore {
+export interface PhoneScore {
   childPhones?: ChildPhone[];
   extent: number[];
   phone: string;
   qualityScore: number;
   soundMostLike: string | null;
-  stressLevel: number | null;
-  stressScore: number;
+  stressLevel?: number | null;
+  stressScore?: number | null;
 }
 
-interface SyllableScore {
+export interface SyllableScore {
   extent: number;
   stressScore: number;
   qualityScore: number;
@@ -23,21 +23,21 @@ interface SyllableScore {
   phoneCount: number;
 }
 
-interface WordScore {
-  phoneScoreList?;
+export interface WordScore {
+  phoneScoreList?: PhoneScore[];
   qualityScore: number;
   syllableScoreList?: SyllableScore[];
   word: string;
 }
 
-interface TextScore {
+export interface TextScore {
   fidelityClass: 'CORRECT' | 'NO_SPEECH' | 'INCOMPLETE' | 'FREE_SPEAK';
   qualityScore: number;
   text?: string;
   wordScoreList?: WordScore[];
 }
 
-interface SpeechResponse {
+export interface SpeechResponse {
   quotaRemaining?: number;
   status: string;
   detailMessage?: string;
