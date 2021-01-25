@@ -125,6 +125,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   }
 
   private fun makeRequest() {
+    var dialect = "en-us"
     if (workingFile == null) {
       sendJSErrorEvent("There no audio file to score!")
       return
@@ -136,6 +137,9 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       val formDataBuilder = MultipartBody.Builder().setType(MultipartBody.FORM);
       if (formData != null) {
         for ((key, value) in formData!!) {
+          if(key == "dialect") {
+            dialect = value.toString()
+          }
           formDataBuilder.addFormDataPart(key, value.toString())
         }
       }
@@ -149,8 +153,13 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       val urlBuilder = HttpUrl.Builder()
       urlBuilder.scheme("https")
         .host("api2.speechace.com")
-        .addPathSegments("api/scoring/text/v0.5/json")
+//        .addPathSegments("api/scoring/text/v0.5/json")
         .addQueryParameter("key", apiKey)
+      if (dialect == "en-gb") {
+        urlBuilder.addPathSegments("api/scoring/text/v0.5/json")
+      } else {
+        urlBuilder.addPathSegments("api/scoring/text/v0.1/json")
+      }
       if (queryParams != null) {
         for ((key, value) in queryParams!!) {
           urlBuilder.addQueryParameter(key, value.toString())
