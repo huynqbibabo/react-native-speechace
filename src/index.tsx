@@ -26,7 +26,7 @@ export interface SpeechErrorEvent {
   };
 }
 
-export type SpeechAceModuleState = 'NONE' | 'RECORDING' | 'RECOGNIZING';
+export type SpeechaceModuleState = 'NONE' | 'RECORDING' | 'RECOGNIZING';
 
 export interface SpeechRecognizeEvent {
   /**
@@ -34,7 +34,7 @@ export interface SpeechRecognizeEvent {
    */
   filePath: string;
   /**
-   * response from speechace api
+   * response from Speechace api
    */
   response: {
     [key: string]: any;
@@ -102,7 +102,7 @@ export interface FormData {
   phoneList?: string;
 }
 
-class SpeechAce {
+class Speechace {
   private readonly _events: Required<SpeechEvents>;
   private _listeners: any[] | null;
 
@@ -123,7 +123,7 @@ class SpeechAce {
   async start(
     queryParams?: QueryParams,
     formData?: FormData
-  ): Promise<SpeechAceModuleState> {
+  ): Promise<SpeechaceModuleState> {
     if (!this._listeners) {
       this._listeners = (Object.keys(
         this._events
@@ -140,7 +140,7 @@ class SpeechAce {
   /**
    * Call this to stop recorder
    */
-  async stop(): Promise<SpeechAceModuleState> {
+  async stop(): Promise<SpeechaceModuleState> {
     return await SpeechaceModule.stop();
   }
 
@@ -167,7 +167,7 @@ class SpeechAce {
   /**
    * Cancel speech recording or api call
    */
-  async cancel(): Promise<SpeechAceModuleState> {
+  async cancel(): Promise<SpeechaceModuleState> {
     return await SpeechaceModule.cancel();
   }
 
@@ -192,4 +192,4 @@ class SpeechAce {
   }
 }
 
-export default new SpeechAce();
+export default new Speechace();
