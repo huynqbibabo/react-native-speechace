@@ -1,4 +1,9 @@
-import { NativeEventEmitter, NativeModules } from 'react-native';
+import {
+  EmitterSubscription,
+  NativeEventEmitter,
+  NativeModules,
+} from 'react-native';
+
 export interface ChildPhone {
   soundMostLike: string;
   qualityScore: number;
@@ -200,9 +205,9 @@ export interface Configs {
 
 const SpeechaceModule = NativeModules.Speechace;
 
-const VoiceEmitter = new NativeEventEmitter(SpeechaceModule);
+export type SpeechEvent = keyof SpeechEvents;
 
-type SpeechEvent = keyof SpeechEvents;
+const VoiceEmitter = new NativeEventEmitter(SpeechaceModule);
 
 class Speechace {
   private readonly _events: Required<SpeechEvents>;
@@ -265,11 +270,9 @@ class Speechace {
    * remove all module listeners
    */
   removeListeners() {
-    if (this._listeners) {
-      this._listeners.map((listener) => listener.remove());
-      this._listeners = null;
-    }
-    this._listeners = null;
+    (Object.keys({} as SpeechEvents) as SpeechEvent[]).map((key) =>
+      VoiceEmitter.removeAllListeners(key)
+    );
   }
 
   /**
@@ -279,28 +282,28 @@ class Speechace {
     return await SpeechaceModule.cancel();
   }
 
-  onVoiceStart(fn: () => void) {
-    this._events.onVoiceStart = fn;
-  }
+  onVoiceStart = (fn: () => void): EmitterSubscription => {
+    return VoiceEmitter.addListener('onVoiceStart', fn);
+  };
 
   onVoice(fn: (data: VoiceEvent) => void) {
-    this._events.onVoice = fn;
+    return VoiceEmitter.addListener('onVoice', fn);
   }
 
   onVoiceEnd(fn: () => void) {
-    this._events.onVoiceEnd = fn;
+    return VoiceEmitter.addListener('onVoiceEnd', fn);
   }
 
-  onSpeechError(fn: (error: SpeechErrorEvent) => void) {
-    this._events.onError = fn;
+  onError(fn: (error: SpeechErrorEvent) => void) {
+    return VoiceEmitter.addListener('onError', fn);
   }
 
   onSpeechRecognized(fn: (event: SpeechRecognizeEvent) => void) {
-    this._events.onSpeechRecognized = fn;
+    return VoiceEmitter.addListener('onSpeechRecognized', fn);
   }
 
   onModuleStateChange(fn: (e: StateChangeEvent) => void) {
-    this._events.onModuleStateChange = fn;
+    return VoiceEmitter.addListener('onModuleStateChange', fn);
   }
 }
 

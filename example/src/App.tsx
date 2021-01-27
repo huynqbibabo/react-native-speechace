@@ -69,7 +69,7 @@ const App = () => {
     SpeechAce.onVoice(onVoice);
     SpeechAce.onVoiceStart(onVoiceStart);
     SpeechAce.onVoiceEnd(onVoiceEnd);
-    SpeechAce.onSpeechError(onSpeechError);
+    SpeechAce.onError(onSpeechError);
     SpeechAce.onSpeechRecognized(onSpeechRecognized);
     SpeechAce.onModuleStateChange(onModuleStateChange);
     return () => {
