@@ -30,11 +30,41 @@ export interface WordScore {
   word: string;
 }
 
+export interface SegmentMetrics extends Metrics {}
+
+export interface Metrics {
+  allPauseCount: number;
+  allPauseDuration: number;
+  allPauseList: number[][];
+  articulationLength: number;
+  articulationRate: number;
+  correctSyllableCount: number;
+  correctWordCount: number;
+  duration: number;
+  ieltsEstimate: number;
+  maxLengthRun: number;
+  meanLengthRun: number;
+  pteEstimate: number;
+  segment: number[];
+  speechRate: number;
+  syllableCorrectPerMinute: number;
+  syllableCount: number;
+  wordCorrectPerMinute: number;
+  wordCount: number;
+}
+
+export interface Fluency {
+  segmentMetricsList: SegmentMetrics[];
+  overallMetrics?: OverallMetrics;
+  fluencyVersion: string | null;
+}
+
 export interface TextScore {
   fidelityClass: 'CORRECT' | 'NO_SPEECH' | 'INCOMPLETE' | 'FREE_SPEAK';
   qualityScore: number;
   text?: string;
   wordScoreList?: WordScore[];
+  fluency?: Fluency;
 }
 
 export interface SpeechResponse {
@@ -53,6 +83,7 @@ export interface SpeechEvents {
 
   onError?: (e: SpeechErrorEvent) => void;
   onSpeechRecognized?: (e: SpeechRecognizeEvent) => void;
+  onModuleStateChange?: (e: StateChangeEvent) => void;
 }
 
 export interface VoiceEvent {
@@ -67,6 +98,10 @@ export interface SpeechErrorEvent {
 }
 
 export type SpeechaceModuleState = 'NONE' | 'RECORDING' | 'RECOGNIZING';
+
+export interface StateChangeEvent {
+  state: SpeechaceModuleState;
+}
 
 export interface SpeechRecognizeEvent {
   /**
@@ -101,7 +136,7 @@ export interface QueryParams {
    * 99001 is an id for the end-user
    * Ensure user_id is unique and anonymized containing no personally identifiable information.
    */
-  userId?: string;
+  user_id?: string;
 }
 
 export interface FormData {
@@ -114,28 +149,50 @@ export interface FormData {
    * path to audio file(wav, mp3, m4a, webm, ogg, aiff)
    * module will call voice recorder if file path not set
    */
-  audioFile?: string;
+  user_audio_file?: string;
   /**
    * A unique identifier for the activity or question this user audio is answering.
    * Structure this field to include as much info as possible to aid in reporting and analytics.
    * Ensure no personally identifiable information is passed in this field.
    */
-  questionInfo?: string;
+  question_info?: string;
   /**
    * includes fluency scoring for this request.
    * To use this field you must have a Speechace API PRO key.
    */
-  includeFluency?: 1;
+  include_fluency?: 1;
   /**
    * Include intonation score (beta)
    */
-  includeIntonation?: 1;
+  include_intonation?: 1;
   /**
    * Include lexical stress (beta)
    */
-  stressVersion?: 0.8;
+  stress_version?: 0.8;
   /**
    * A phoneme list to score.
    */
-  phoneList?: string;
+  phone_list?: string;
+}
+
+/**
+ * audio configs
+ */
+export interface Configs {
+  /**
+   * max audio length to record. Default value is 40s
+   * if user start module and not do anything
+   * module will auto release resource and cancel progress.
+   */
+  audioLengthInSeconds?: number;
+  /**
+   * action of api call
+   * default value is 'scoring'
+   */
+  callForAction?: 'scoring' | 'validating';
+  /**
+   * type of api action
+   * default value is 'text'
+   */
+  actionForDatatype?: 'text' | 'speech' | 'phone_list';
 }

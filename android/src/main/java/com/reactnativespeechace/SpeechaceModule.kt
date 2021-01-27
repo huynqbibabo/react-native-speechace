@@ -1,5 +1,6 @@
 package com.reactnativespeechace
 
+import android.os.CountDownTimer
 import android.util.Log
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
@@ -17,6 +18,11 @@ import java.io.File
  */
 class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
+  /**
+   * Configuration for recording audio file.
+   */
+  private var waveConfig: WaveConfig = WaveConfig()
+  private var mRecordTimer: CountDownTimer? = null
   private var mRequest: Request? = null
   private var mClient: OkHttpClient? = null
   private var apiKey: String? = null
@@ -37,11 +43,13 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     var onVoiceEnd: String = "onVoiceEnd"
     var onError: String = "onError"
     var onSpeechRecognized = "onSpeechRecognized"
+    var onModuleStateChange = "onModuleStateChange"
   }
 
   private var state = moduleStates.none
   private var queryParams: MutableMap<String, Any>? = null
   private var formData: MutableMap<String, Any>? = null
+  private var configs: MutableMap<String, Any>? = null
 
   override fun getName(): String {
     return TAG
@@ -59,87 +67,82 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   }
 
   @ReactMethod
-  fun start(params: ReadableMap, options: ReadableMap?, promise: Promise) {
+  fun start(params: ReadableMap, formParams: ReadableMap?, callOptions: ReadableMap?, promise: Promise) {
     if (apiKey.isNullOrEmpty()) promise.reject("api_missing", "Set a valid api key to start!")
     if (state != moduleStates.none) {
-      promise.reject("-2", "Process already running!")
+      promise.reject("too_many_request", "Process already running!")
       return
     }
-    Log.i(TAG, "start: $options")
     queryParams = params.toHashMap()
-    if (options != null) {
-      if (options.getString("audioFile") != null) {
-        workingFile = options.getString("audioFile")
+    if (formParams != null) {
+      if (formParams.getString("user_audio_file") != null) {
+        workingFile = formParams.getString("user_audio_file")
       }
-      formData = options.toHashMap()
-      (formData as HashMap<String, Any>).remove("audioFile")
+      formData = formParams.toHashMap()
+      (formData as HashMap<String, Any>).remove("user_audio_file")
     }
+    configs = callOptions?.toHashMap()
     try {
       mClient = null
       mRequest = null
-      if (!workingFile.isNullOrEmpty() && File(workingFile).exists()) {
-        state = moduleStates.recognizing
-        promise.resolve(state)
+      if (!workingFile.isNullOrEmpty() && File(workingFile!!).exists()) {
+        promise.resolve(null)
         makeRequest()
       } else {
         workingFile = buildFile()
-        Log.i(TAG, "start recording to file: $workingFile")
-        state = moduleStates.recording
         startVoiceRecorder(workingFile!!)
-        promise.resolve(state)
+        promise.resolve(null)
+        emitStateChangeEvent()
       }
     } catch (e: Exception) {
-      state = moduleStates.none
-      workingFile = null
-      e.printStackTrace()
       promise.reject("-1", e.message)
+      handleErrorEvent(e)
     }
   }
 
   @ReactMethod
   fun stop(promise: Promise) {
-    if (state == moduleStates.none) {
-      promise.resolve(state)
-      return
-    }
     synchronized(Any()) {
       stopVoiceRecorder()
-      state = moduleStates.recognizing
-      makeRequest()
-      promise.resolve(state)
+      if (mRecordTimer != null) {
+        mRecordTimer?.cancel()
+        mRecordTimer = null
+      }
+      promise.resolve(null)
+      if (workingFile != null) {
+        makeRequest()
+      } else {
+        state = moduleStates.none
+        emitStateChangeEvent()
+      }
     }
   }
 
   @ReactMethod
   fun cancel(promise: Promise) {
     stopVoiceRecorder()
-    if (mClient != null) {
-      cancelCallWithTag(mClient!!)
-      mRequest = null
-      mClient = null
-    }
-    workingFile?.let { deleteTempFile(it) }
-    workingFile = null
+    releaseResources()
+    promise.resolve(null)
     state = moduleStates.none
-    promise.resolve(state)
+    emitStateChangeEvent()
   }
 
   private fun makeRequest() {
-    var dialect = "en-us"
     if (workingFile == null) {
-      sendJSErrorEvent("There no audio file to score!")
+      handleErrorEvent(Exception("There no audio file to score!"))
       return
     }
+    state = moduleStates.recognizing
+    emitStateChangeEvent()
     try {
       if (mClient == null) mClient = OkHttpClient().newBuilder()
         .build()
       val file = File(workingFile)
       val formDataBuilder = MultipartBody.Builder().setType(MultipartBody.FORM);
+
+      // add form data to request
       if (formData != null) {
         for ((key, value) in formData!!) {
-          if(key == "dialect") {
-            dialect = value.toString()
-          }
           formDataBuilder.addFormDataPart(key, value.toString())
         }
       }
@@ -154,18 +157,21 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       urlBuilder.scheme("https")
         .host("api2.speechace.com")
         .addQueryParameter("key", apiKey)
-      if (dialect == "en-us") {
-        urlBuilder.addPathSegments("api/scoring/text/v0.5/json")
-      } else {
-        urlBuilder.addPathSegments("api/scoring/text/v0.1/json")
-      }
+      // add url get params
       if (queryParams != null) {
         for ((key, value) in queryParams!!) {
           urlBuilder.addQueryParameter(key, value.toString())
         }
       }
+      Log.i(TAG, "makeRequest: $configs")
+      val apiVers = if (queryParams?.getValue("dialect")?.equals("en-bg") == true) "v0.1" else "v0.5"
+      val apiPaths = "api/${configs?.getValue("callForAction")}/${configs?.getValue("actionForDatatype")}/${apiVers}/json"
+        urlBuilder.addPathSegments(apiPaths)
+      val url = urlBuilder.build();
+      Log.i(TAG, "makeRequest: $url")
+
       mRequest = Request.Builder()
-        .url(urlBuilder.build())
+        .url(url)
         .tag(TAG)
         .method("POST", body)
         .build()
@@ -179,18 +185,13 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       sendJSEvent(moduleEvents.onSpeechRecognized, params)
 
       state = moduleStates.none
+      emitStateChangeEvent()
       response.body()?.close()
       mRequest = null
       mClient = null
       workingFile = null
     } catch (e: Exception) {
-      e.printStackTrace()
       handleErrorEvent(e)
-
-      state = moduleStates.none
-      mRequest = null
-      mClient = null
-      workingFile = null
     }
   }
 
@@ -204,19 +205,44 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   }
 
   private fun startVoiceRecorder(file: String) {
+    state = moduleStates.recording
     if (mVoiceRecorder != null) {
       mVoiceRecorder!!.stopRecording()
     }
-    mVoiceRecorder = VoiceRecorder(file, mVoiceCallback)
+    mVoiceRecorder = VoiceRecorder(file, waveConfig, mVoiceCallback)
     mVoiceRecorder!!.startRecording()
+    if (configs?.getValue("audioLengthInSeconds") != null) {
+      val audioLengthInSeconds = configs?.getValue("audioLengthInSeconds").toString().toDouble().toInt()
+      if (mRecordTimer != null) {
+        mRecordTimer?.cancel()
+        mRecordTimer = null
+      }
+      mRecordTimer = object : CountDownTimer((audioLengthInSeconds * 1000).toLong(), 1000) {
+        override fun onTick(millisUntilFinished: Long) {
+          // skip
+        }
+
+        override fun onFinish() {
+          if (state == moduleStates.recording) {
+            stopVoiceRecorder()
+            releaseResources()
+          }
+          if (mRecordTimer != null) {
+            mRecordTimer?.cancel()
+            mRecordTimer = null
+          }
+          state = moduleStates.none
+          emitStateChangeEvent()
+        }
+      }.start()
+    }
   }
 
   private fun stopVoiceRecorder() {
     if (mVoiceRecorder != null) {
-      mVoiceRecorder!!.stopRecording()
+      mVoiceRecorder?.stopRecording()
       mVoiceRecorder = null
     }
-
   }
 
   private val mVoiceCallback: VoiceRecorder.Callback = object : VoiceRecorder.Callback() {
@@ -253,8 +279,37 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     file.delete()
   }
 
+  private fun releaseResources() {
+    stopVoiceRecorder()
+    if (mClient != null) {
+      cancelCallWithTag(mClient!!)
+      mRequest = null
+      mClient = null
+    }
+    workingFile?.let { deleteTempFile(it) }
+    workingFile = null
+    state = moduleStates.none
+    if (mRecordTimer !== null) {
+      mRecordTimer?.cancel()
+      mRecordTimer = null
+    }
+  }
+
   private fun handleErrorEvent(throwable: Throwable) {
+    throwable.printStackTrace()
+    stopVoiceRecorder()
+    releaseResources()
+
     sendJSErrorEvent(throwable.message)
+
+    state = moduleStates.none
+    emitStateChangeEvent()
+  }
+
+  private fun emitStateChangeEvent() {
+    val params = Arguments.createMap()
+    params.putString("state", state)
+    sendJSEvent(moduleEvents.onModuleStateChange, params)
   }
 
   private fun sendJSErrorEvent(message: String?) {
@@ -316,9 +371,9 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       val array: WritableArray = WritableNativeArray()
       for (i in 0 until jsonArray.length()) {
         when (val value = jsonArray[i]) {
-            is JSONObject -> {
-              array.pushMap(convertJsonToMap(value))
-            }
+          is JSONObject -> {
+            array.pushMap(convertJsonToMap(value))
+          }
           is JSONArray -> {
             array.pushArray(convertJsonToArray(value))
           }

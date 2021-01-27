@@ -13,6 +13,8 @@ import type {
   SpeechErrorEvent,
   SpeechEvents,
   VoiceEvent,
+  Configs,
+  StateChangeEvent,
 } from './types';
 
 const SpeechaceModule = NativeModules.Speechace;
@@ -33,6 +35,7 @@ class Speechace {
       onError: () => undefined,
       onVoiceStart: () => undefined,
       onSpeechRecognized: () => undefined,
+      onModuleStateChange: () => undefined,
     };
   }
 
@@ -41,8 +44,9 @@ class Speechace {
    */
   async start(
     queryParams?: QueryParams,
-    formData?: FormData
-  ): Promise<SpeechaceModuleState> {
+    formData?: FormData,
+    configs?: Configs
+  ): Promise<void> {
     if (!this._listeners) {
       this._listeners = (Object.keys(
         this._events
@@ -52,14 +56,18 @@ class Speechace {
     }
     return await SpeechaceModule.start(
       Object.assign({ dialect: 'en-us' }, queryParams),
-      formData
+      formData,
+      Object.assign(
+        { callForAction: 'scoring', actionForDatatype: 'text' },
+        configs
+      )
     );
   }
 
   /**
    * Call this to stop recorder
    */
-  async stop(): Promise<SpeechaceModuleState> {
+  async stop(): Promise<void> {
     return await SpeechaceModule.stop();
   }
 
@@ -86,7 +94,7 @@ class Speechace {
   /**
    * Cancel speech recording or api call
    */
-  async cancel(): Promise<SpeechaceModuleState> {
+  async cancel(): Promise<void> {
     return await SpeechaceModule.cancel();
   }
 
@@ -109,6 +117,10 @@ class Speechace {
   onSpeechRecognized(fn: (event: SpeechRecognizeEvent) => void) {
     this._events.onSpeechRecognized = fn;
   }
+
+  onModuleStateChange(fn: (e: StateChangeEvent) => void) {
+    this._events.onModuleStateChange = fn;
+  }
 }
 
 export default new Speechace();
@@ -126,4 +138,6 @@ export type {
   SpeechErrorEvent,
   SpeechEvents,
   VoiceEvent,
+  Configs,
+  StateChangeEvent,
 };

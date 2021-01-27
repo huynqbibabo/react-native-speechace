@@ -1,9 +1,12 @@
 import SpeechAce, {
+  SpeechaceModuleState,
   SpeechErrorEvent,
   SpeechRecognizeEvent,
+  SpeechResponse,
   VoiceEvent,
+  StateChangeEvent,
 } from 'react-native-speechace';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Button,
@@ -12,8 +15,12 @@ import {
   Text,
   PermissionsAndroid,
 } from 'react-native';
+import Sound from 'react-native-sound';
+import WordHighlight from './WordHighlight';
 
 const Separator = () => <View style={styles.separator} />;
+
+const text = 'This is beta functionality';
 
 const App = () => {
   useEffect(() => {
@@ -53,13 +60,18 @@ const App = () => {
     );
   }, []);
 
+  const [file, setFile] = useState('');
+  const [result, setResult] = useState<SpeechResponse | undefined>(undefined);
+  const [state, setState] = useState<SpeechaceModuleState>('NONE');
+
   useEffect(() => {
-    SpeechAce.setApiKey('key_____');
+    SpeechAce.setApiKey('--APIKEY--');
     SpeechAce.onVoice(onVoice);
     SpeechAce.onVoiceStart(onVoiceStart);
     SpeechAce.onVoiceEnd(onVoiceEnd);
     SpeechAce.onSpeechError(onSpeechError);
     SpeechAce.onSpeechRecognized(onSpeechRecognized);
+    SpeechAce.onModuleStateChange(onModuleStateChange);
     return () => {
       SpeechAce.removeListeners();
     };
@@ -83,19 +95,32 @@ const App = () => {
 
   const onSpeechRecognized = (_e: SpeechRecognizeEvent) => {
     console.log('onSpeechRecognized', _e);
+    setFile(_e.filePath);
+    if (_e.response.status === 'success') {
+      setResult(_e.response);
+    }
+  };
+
+  const onModuleStateChange = (e: StateChangeEvent) => {
+    console.log('onModuleStateChange', e);
+    setState(e.state);
   };
 
   const start = async () => {
+    setResult(undefined);
     await SpeechAce.start(
       {
-        userId: 'test-speechace-user-id',
+        user_id: 'test-speechace-user-id',
+        dialect: 'en-us',
       },
       {
-        text: 'organization',
-        audioFile:
-          '/var/mobile/Containers/Data/Application/358F4344-5D0B-4082-AB80-7DEAEBD25BA1/Documents/1611420490062.363037.wav',
-        includeFluency: 1,
-        // includeIntonation: 1,
+        text,
+        include_fluency: 1,
+        include_intonation: 1,
+      },
+      {
+        audioLengthInSeconds: 15,
+        actionForDatatype: 'text',
       }
     );
   };
@@ -104,23 +129,43 @@ const App = () => {
     await SpeechAce.stop();
   };
 
+  const cancel = async () => {
+    await SpeechAce.cancel();
+  };
+
+  const play = async () => {
+    const audioPlayer = new Sound(file, undefined, (error) => {
+      if (error) {
+        console.log(error);
+      } else {
+        audioPlayer.play(() => {
+          audioPlayer.release();
+        });
+      }
+    });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View>
-        <Text style={styles.title}>
-          The title and onPress handler are required. It is recommended to set
-          accessibilityLabel to help make your app usable by everyone.
-        </Text>
+        <Text style={styles.title}>Try me: {text}</Text>
+        <Text style={styles.title}>State: {state}</Text>
         <Button title="Press me to Start" onPress={start} />
       </View>
       <Separator />
       <View>
-        <Text style={styles.title}>
-          Adjust the color in a way that looks standard on each platform. On
-          iOS, the color prop controls the color of the text. On Android, the
-          color adjusts the background color of the button.
-        </Text>
+        <View style={styles.result}>
+          {result?.textScore?.wordScoreList && (
+            <WordHighlight words={result?.textScore?.wordScoreList} />
+          )}
+        </View>
         <Button title="Press to stop" color="#f194ff" onPress={stop} />
+      </View>
+      <Separator />
+      <Button title="Press to Cancel" color="#F2994A" onPress={cancel} />
+      <Separator />
+      <View>
+        <Button title="Press to Play" color="#f194ff" onPress={play} />
       </View>
     </SafeAreaView>
   );
@@ -144,6 +189,11 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     borderBottomColor: '#737373',
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  result: {
+    minHeight: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

@@ -28,4 +28,5 @@ typedef struct {
     @property (nonatomic, strong) NSString* apiKey;
     @property (nonatomic, strong) NSDictionary* params;
     @property (nonatomic, strong) NSDictionary* formData;
+    @property (nonatomic, strong) NSDictionary* configs;
 @end

@@ -17,11 +17,7 @@ import java.nio.ByteOrder
  * Kotlin Coroutine with IO dispatcher to writing input data on storage asynchronously.
  * @property filePath the path of the file to be saved.
  */
-class VoiceRecorder(private var filePath: String, private val mCallback: Callback) {
-  /**
-   * Configuration for recording audio file.
-   */
-  private var waveConfig: WaveConfig = WaveConfig()
+class VoiceRecorder(private var filePath: String, private var waveConfig: WaveConfig, private val mCallback: Callback) {
 
   abstract class Callback {
     /**
@@ -64,6 +60,7 @@ class VoiceRecorder(private var filePath: String, private val mCallback: Callbac
    * Starts audio recording asynchronously and writes recorded data chunks on storage.
    */
   fun startRecording() {
+
     if (!isAudioRecorderInitialized()) {
       audioRecorder = AudioRecord(
         MediaRecorder.AudioSource.MIC,

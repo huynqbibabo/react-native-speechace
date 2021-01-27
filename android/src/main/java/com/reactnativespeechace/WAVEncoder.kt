@@ -7,7 +7,8 @@ import java.io.RandomAccessFile
 data class WaveConfig(
   var sampleRate: Int = 16000,
   var channels: Int = AudioFormat.CHANNEL_IN_MONO,
-  var audioEncoding: Int = AudioFormat.ENCODING_PCM_16BIT
+  var audioEncoding: Int = AudioFormat.ENCODING_PCM_16BIT,
+  var audioLengthInSeconds: Int = 15
 )
 
 internal fun bitPerSample(audioEncoding: Int) = when (audioEncoding) {
