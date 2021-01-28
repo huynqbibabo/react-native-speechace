@@ -62,11 +62,6 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   }
 
   @ReactMethod
-  fun getState(promise: Promise) {
-    promise.resolve(state)
-  }
-
-  @ReactMethod
   fun start(params: ReadableMap, formParams: ReadableMap?, callOptions: ReadableMap?, promise: Promise) {
     if (apiKey.isNullOrEmpty()) promise.reject("api_missing", "Set a valid api key to start!")
     if (state != moduleStates.none) {
@@ -89,6 +84,8 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         promise.resolve(null)
         makeRequest()
       } else {
+        stopVoiceRecorder()
+        releaseResources()
         workingFile = buildFile()
         startVoiceRecorder(workingFile!!)
         promise.resolve(null)
@@ -137,8 +134,8 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     try {
       if (mClient == null) mClient = OkHttpClient().newBuilder()
         .build()
-      val file = File(workingFile)
-      val formDataBuilder = MultipartBody.Builder().setType(MultipartBody.FORM);
+      val file = File(workingFile!!)
+      val formDataBuilder = MultipartBody.Builder().setType(MultipartBody.FORM)
 
       // add form data to request
       if (formData != null) {
@@ -167,7 +164,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       val apiVers = if (queryParams?.getValue("dialect")?.equals("en-bg") == true) "v0.1" else "v0.5"
       val apiPaths = "api/${configs?.getValue("callForAction")}/${configs?.getValue("actionForDatatype")}/${apiVers}/json"
         urlBuilder.addPathSegments(apiPaths)
-      val url = urlBuilder.build();
+      val url = urlBuilder.build()
       Log.i(TAG, "makeRequest: $url")
 
       mRequest = Request.Builder()
@@ -177,7 +174,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         .build()
       val response: Response = mClient!!.newCall(mRequest!!).execute()
       val jsonString: String? = response.body()?.string()
-      val jObject = JSONObject(jsonString)
+      val jObject = JSONObject(jsonString!!)
 
       val params = Arguments.createMap()
       params.putString("filePath", workingFile)

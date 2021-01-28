@@ -52,6 +52,10 @@ RCT_EXPORT_METHOD(start:(NSDictionary *)params formData:(NSDictionary *)formData
         _params = params;
         _formData = formData;
         _configs = configs;
+        
+        [self stopRecording];
+        [self releaseResouce];
+        [self cancelRequestTask];
         _state = StateRecording;
         
         NSString *fileName = [NSString stringWithFormat:@"%f%@",[[NSDate date] timeIntervalSince1970] * 1000, @".wav"];
@@ -110,39 +114,10 @@ RCT_EXPORT_METHOD(stop:(RCTPromiseResolveBlock)resolve rejecter:(__unused RCTPro
 RCT_EXPORT_METHOD(cancel:(RCTPromiseResolveBlock)resolve rejecter:(__unused RCTPromiseRejectBlock)reject) {
     [self stopRecording];
     [self releaseResouce];
-    
+    [self cancelRequestTask];
     _state = StateNone;
     resolve(@{});
     [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state}];
-}
-
--(void) startTimer:(NSInteger)timeIntervalInSeconds {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeIntervalInSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        if ([self->_state  isEqual: StateRecording]) {
-            [self stopRecording];
-            [self releaseResouce];
-            
-            self->_state = StateNone;
-            [self sendEventWithName:@"onModuleStateChange" body:@{@"state": self->_state}];
-        }
-    });
-}
-
--(void) releaseResouce {
-    NSLog(@"release resouce");
-    if (![_filePath isEqual:nil]) {
-        [[NSFileManager defaultManager] removeItemAtPath:_filePath error:nil];
-        _filePath = nil;
-    }
-}
-
-- (void) stopRecording {
-    if (_recordState.mIsRunning) {
-        _recordState.mIsRunning = false;
-        AudioQueueStop(_recordState.mQueue, true);
-        AudioQueueDispose(_recordState.mQueue, true);
-        AudioFileClose(_recordState.mAudioFile);
-    }
 }
 
 - (void) makeRequest {
@@ -160,7 +135,7 @@ RCT_EXPORT_METHOD(cancel:(RCTPromiseResolveBlock)resolve rejecter:(__unused RCTP
         
         NSString *apiPaths = [NSString stringWithFormat:@"/api/%@/%@/%@/json", [_configs valueForKey:@"callForAction"], [_configs valueForKey:@"actionForDatatype"], [[_params valueForKey:@"dialect"] isEqual: @"en-gb"] ? @"v0.1" : @"v0.5"];
         urlBuilder.path = apiPaths;
-
+        
         NSArray<NSURLQueryItem *> *queryItems = @[[NSURLQueryItem queryItemWithName:@"key" value:_apiKey]];
         // add url get params
         if (_params.count > 0) {
@@ -209,8 +184,7 @@ RCT_EXPORT_METHOD(cancel:(RCTPromiseResolveBlock)resolve rejecter:(__unused RCTP
         [body appendData:[[NSString stringWithFormat:@"\r\n--%@--\r\n",boundary] dataUsingEncoding:NSUTF8StringEncoding]];
         
         [request setHTTPBody:body];
-        
-        [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        _requestTask = [[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
             if (error) {
                 NSLog(@"%@", error);
                 [self handleModuleExeption:[NSException exceptionWithName:@"request_error" reason:[error localizedDescription] userInfo:nil]];
@@ -225,7 +199,8 @@ RCT_EXPORT_METHOD(cancel:(RCTPromiseResolveBlock)resolve rejecter:(__unused RCTP
             self->_state = StateNone;
             [self sendEventWithName:@"onModuleStateChange" body:@{@"state": StateNone}];
             self->_filePath = nil;
-        }] resume];
+        }];
+        [_requestTask resume];
     } @catch (NSException * e) {
         [self handleModuleExeption:e];
     }
@@ -256,22 +231,49 @@ void HandleInputBuffer(void *inUserData,
     AudioQueueEnqueueBuffer(pRecordState->mQueue, inBuffer, 0, NULL);
 }
 
-- (NSArray<NSString *> *)supportedEvents
-{
-    return @[
-        @"onVoiceStart",
-        @"onVoice",
-        @"onVoiceEnd",
-        @"onError",
-        @"onSpeechRecognized",
-        @"onModuleStateChange"
-    ];
+- (void) startTimer:(NSInteger)timeIntervalInSeconds {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeIntervalInSeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if ([self->_state  isEqual: StateRecording]) {
+            [self stopRecording];
+            [self releaseResouce];
+            
+            self->_state = StateNone;
+            [self sendEventWithName:@"onModuleStateChange" body:@{@"state": self->_state}];
+        }
+    });
+}
+
+- (void) releaseResouce {
+    NSLog(@"release resouce");
+    if (![_filePath isEqual:nil]) {
+        [[NSFileManager defaultManager] removeItemAtPath:_filePath error:nil];
+        _filePath = nil;
+    }
+}
+
+- (void) stopRecording {
+    if (_recordState.mIsRunning) {
+        _recordState.mIsRunning = false;
+        AudioQueueStop(_recordState.mQueue, true);
+        AudioQueueDispose(_recordState.mQueue, true);
+        AudioFileClose(_recordState.mAudioFile);
+    }
+}
+
+- (void) cancelRequestTask {
+    if (_requestTask != nil){
+        if (_requestTask.state == NSURLSessionTaskStateRunning || _requestTask.state != NSURLSessionTaskStateSuspended) {
+            [_requestTask cancel];
+            _requestTask = nil;
+        }
+    }
 }
 
 - (void) handleModuleExeption:(NSException *)e {
     NSLog(@"Exception: %@", e);
     [self stopRecording];
     [self releaseResouce];
+    [self cancelRequestTask];
     _state = StateNone;
     [self sendJSEvent:@{@"-1": e.reason} :nil :nil :nil :nil];
     [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state}];
@@ -299,6 +301,17 @@ void HandleInputBuffer(void *inUserData,
     }
 }
 
+- (NSArray<NSString *> *)supportedEvents
+{
+    return @[
+        @"onVoiceStart",
+        @"onVoice",
+        @"onVoiceEnd",
+        @"onError",
+        @"onSpeechRecognized",
+        @"onModuleStateChange"
+    ];
+}
 
 /*
  Recursive algorithm to find all nested dictionary keys and create an NSMutableDictionary copy with all keys converted to lowercase

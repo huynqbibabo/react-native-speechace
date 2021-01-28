@@ -22,11 +22,12 @@ typedef struct {
 
 
 @interface Speechace : RCTEventEmitter <RCTBridgeModule>
-    @property (nonatomic, assign) AQRecordState recordState;
-    @property (nonatomic, strong) NSString* state;
-    @property (nonatomic, strong) NSString* filePath;
-    @property (nonatomic, strong) NSString* apiKey;
-    @property (nonatomic, strong) NSDictionary* params;
-    @property (nonatomic, strong) NSDictionary* formData;
-    @property (nonatomic, strong) NSDictionary* configs;
+@property (nonatomic, assign) AQRecordState recordState;
+@property (nonatomic, strong) NSString* state;
+@property (nonatomic, strong) NSString* filePath;
+@property (nonatomic, strong) NSString* apiKey;
+@property (nonatomic, strong) NSDictionary* params;
+@property (nonatomic, strong) NSDictionary* formData;
+@property (nonatomic, strong) NSDictionary* configs;
+@property (nonatomic, strong) NSURLSessionTask* requestTask;
 @end
