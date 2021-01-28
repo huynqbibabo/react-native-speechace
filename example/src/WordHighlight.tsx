@@ -1,6 +1,6 @@
 import React from 'react';
-import type { SyllableScore, WordScore } from 'react-native-speechace';
 import { StyleSheet, Text, View } from 'react-native';
+import type { SyllableScore, WordScore } from 'react-native-speechace';
 
 type Props = {
   words: WordScore[];

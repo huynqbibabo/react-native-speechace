@@ -1,19 +1,20 @@
 import SpeechAce, {
-  SpeechaceModuleState,
-  SpeechErrorEvent,
-  SpeechRecognizeEvent,
+  ErrorEvent,
+  SpeechModuleState,
+  SpeechRecognizedEvent,
   SpeechResponse,
-  VoiceEvent,
   StateChangeEvent,
+  useModuleState,
+  VoiceEvent,
 } from 'react-native-speechace';
 import React, { useEffect, useState } from 'react';
 import {
-  StyleSheet,
   Button,
-  View,
-  SafeAreaView,
-  Text,
   PermissionsAndroid,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import Sound from 'react-native-sound';
 import WordHighlight from './WordHighlight';
@@ -62,7 +63,8 @@ const App = () => {
 
   const [file, setFile] = useState('');
   const [result, setResult] = useState<SpeechResponse | undefined>(undefined);
-  const [state, setState] = useState<SpeechaceModuleState>('NONE');
+  const state = useModuleState();
+  const [handleState, setState] = useState<SpeechModuleState>('NONE');
 
   useEffect(() => {
     SpeechAce.setApiKey('--APIKEY--');
@@ -77,7 +79,7 @@ const App = () => {
     };
   }, []);
 
-  const onSpeechError = (_error: SpeechErrorEvent) => {
+  const onSpeechError = (_error: ErrorEvent) => {
     console.log('onSpeechError: ', _error);
   };
 
@@ -93,7 +95,7 @@ const App = () => {
     console.log('onVoiceEnd: ');
   };
 
-  const onSpeechRecognized = (_e: SpeechRecognizeEvent) => {
+  const onSpeechRecognized = (_e: SpeechRecognizedEvent) => {
     console.log('onSpeechRecognized', _e);
     setFile(_e.filePath);
     if (_e.response.status === 'success') {
@@ -144,12 +146,12 @@ const App = () => {
       }
     });
   };
-
   return (
     <SafeAreaView style={styles.container}>
-      <View>
+      <View style={{ width: '100%' }}>
         <Text style={styles.title}>Try me: {text}</Text>
-        <Text style={styles.title}>State: {state}</Text>
+        <Text style={styles.title}>State handle: {handleState}</Text>
+        <Text style={styles.title}>useModuleState: {state}</Text>
         <Button title="Press me to Start" onPress={start} />
       </View>
       <Separator />

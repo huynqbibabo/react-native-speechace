@@ -57,16 +57,20 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
 
   @ReactMethod
   fun setApiKey(key: String) {
-    Log.d(TAG, "setApiKey: $key")
     apiKey = key
+  }
+
+  @ReactMethod
+  fun getState(promise: Promise) {
+    promise.resolve(state)
   }
 
   @ReactMethod
   fun start(params: ReadableMap, formParams: ReadableMap?, callOptions: ReadableMap?, promise: Promise) {
     if (apiKey.isNullOrEmpty()) promise.reject("api_missing", "Set a valid api key to start!")
     if (state != moduleStates.none) {
-      promise.reject("too_many_request", "Process already running!")
-      return
+      stopVoiceRecorder()
+      releaseResources()
     }
     queryParams = params.toHashMap()
     if (formParams != null) {
@@ -84,8 +88,6 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         promise.resolve(null)
         makeRequest()
       } else {
-        stopVoiceRecorder()
-        releaseResources()
         workingFile = buildFile()
         startVoiceRecorder(workingFile!!)
         promise.resolve(null)
@@ -160,7 +162,6 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
           urlBuilder.addQueryParameter(key, value.toString())
         }
       }
-      Log.i(TAG, "makeRequest: $configs")
       val apiVers = if (queryParams?.getValue("dialect")?.equals("en-bg") == true) "v0.1" else "v0.5"
       val apiPaths = "api/${configs?.getValue("callForAction")}/${configs?.getValue("actionForDatatype")}/${apiVers}/json"
         urlBuilder.addPathSegments(apiPaths)
@@ -252,8 +253,6 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
 
     override fun onVoice(size: Int, length: Long) {
       val params = Arguments.createMap()
-      Log.i(TAG, "onVoice: $size")
-      Log.i(TAG, "onVoice: $length")
       params.putInt("size", size)
       params.putDouble("length", length.toDouble())
       sendJSEvent(moduleEvents.onVoice, params)

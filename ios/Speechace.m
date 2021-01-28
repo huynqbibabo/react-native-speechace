@@ -28,6 +28,10 @@ RCT_EXPORT_METHOD(setApiKey:(NSString *)key) {
     _apiKey = key;
 }
 
+RCT_EXPORT_METHOD(getState:(RCTPromiseResolveBlock)resolve rejecter:(__unused RCTPromiseRejectBlock)reject) {
+    resolve(_state);
+}
+
 RCT_EXPORT_METHOD(start:(NSDictionary *)params formData:(NSDictionary *)formData configs:(NSDictionary *)configs resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
     if (!_apiKey) {
         reject(@"api_missing", @"Set a valid api key to start!", nil);
@@ -35,8 +39,9 @@ RCT_EXPORT_METHOD(start:(NSDictionary *)params formData:(NSDictionary *)formData
     }
     
     if (![_state  isEqual: StateNone]) {
-        reject(@"too_many_request", @"An other process still running!", nil);
-        return;
+        [self stopRecording];
+        [self releaseResouce];
+        [self cancelRequestTask];
     }
     
     if (formData[@"audioFile"] != nil) {
@@ -53,9 +58,6 @@ RCT_EXPORT_METHOD(start:(NSDictionary *)params formData:(NSDictionary *)formData
         _formData = formData;
         _configs = configs;
         
-        [self stopRecording];
-        [self releaseResouce];
-        [self cancelRequestTask];
         _state = StateRecording;
         
         NSString *fileName = [NSString stringWithFormat:@"%f%@",[[NSDate date] timeIntervalSince1970] * 1000, @".wav"];
