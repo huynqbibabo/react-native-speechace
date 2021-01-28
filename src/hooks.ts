@@ -2,8 +2,8 @@
  *   Get current module state and subsequent updates
  */
 import { useEffect, useRef, useState } from 'react';
-import Speechace, { SpeechEvent, StateChangeEvent } from './index';
 import type { SpeechModuleState } from './index';
+import Speechace, { SpeechEvent } from './index';
 import type { EmitterSubscription } from 'react-native';
 
 const useModuleState = () => {
@@ -36,10 +36,7 @@ const useModuleState = () => {
  * @param {Array<string>} event - Speechace events to subscribe to
  * @param {(payload: any) => void} handler - callback invoked when the event fires
  */
-const useSpeechEvent = (
-  event: SpeechEvent,
-  handler: (event: StateChangeEvent) => void
-) => {
+const useSpeechEvent = (event: SpeechEvent, handler: (event: any) => void) => {
   const savedHandler = useRef();
 
   useEffect(() => {
