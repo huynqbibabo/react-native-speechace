@@ -1,6 +1,11 @@
 #import "Speechace.h"
 #import "RCTConvert.h"
 
+NSString* GetDirectoryOfType_Sound(NSSearchPathDirectory dir) {
+  NSArray* paths = NSSearchPathForDirectoriesInDomains(dir, NSUserDomainMask, YES);
+  return [paths.firstObject stringByAppendingString:@"/"];
+}
+
 @implementation Speechace
 
 RCT_EXPORT_MODULE()
@@ -61,8 +66,9 @@ RCT_EXPORT_METHOD(start:(NSDictionary *)params formData:(NSDictionary *)formData
         _state = StateRecording;
         
         NSString *fileName = [NSString stringWithFormat:@"%f%@",[[NSDate date] timeIntervalSince1970] * 1000, @".wav"];
-        NSString *docDir = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
-        _filePath = [NSString stringWithFormat:@"%@/%@", docDir, fileName];
+//        NSString *docDir = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
+        _filePath = [NSString stringWithFormat:@"%@", [GetDirectoryOfType_Sound(NSCachesDirectory) stringByAppendingString:fileName]];
+        
         // most audio players set session category to "Playback", record won't work in this mode
         // therefore set session category to "Record" before recording
         [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryRecord error:nil];

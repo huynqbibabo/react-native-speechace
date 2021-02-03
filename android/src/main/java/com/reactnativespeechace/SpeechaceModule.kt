@@ -209,7 +209,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     }
     mVoiceRecorder = VoiceRecorder(file, waveConfig, mVoiceCallback)
     mVoiceRecorder!!.startRecording()
-    if (configs?.getValue("audioLengthInSeconds") != null) {
+    if (configs?.containsKey("audioLengthInSeconds") == true && configs?.getValue("audioLengthInSeconds") != null) {
       val audioLengthInSeconds = configs?.getValue("audioLengthInSeconds").toString().toDouble().toInt()
       if (mRecordTimer != null) {
         mRecordTimer?.cancel()

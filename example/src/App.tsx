@@ -136,10 +136,12 @@ const App = () => {
   };
 
   const play = async () => {
+    console.log(file);
     const audioPlayer = new Sound(file, undefined, (error) => {
       if (error) {
         console.log(error);
       } else {
+        console.log('start playing');
         audioPlayer.play(() => {
           audioPlayer.release();
         });

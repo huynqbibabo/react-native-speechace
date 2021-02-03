@@ -31,21 +31,6 @@ const SpeechaceModule = NativeModules.Speechace;
 const VoiceEmitter = new NativeEventEmitter(SpeechaceModule);
 
 class RNSpeechace {
-  // private readonly _events: Required<SpeechEvents>;
-  // private _listeners: any[] | null;
-  //
-  // constructor() {
-  //   this._listeners = null;
-  //   this._events = {
-  //     onVoice: () => undefined,
-  //     onVoiceEnd: () => undefined,
-  //     onError: () => undefined,
-  //     onVoiceStart: () => undefined,
-  //     onSpeechRecognized: () => undefined,
-  //     onModuleStateChange: () => undefined,
-  //   };
-  // }
-
   /**
    * Start speech recognize
    */
@@ -54,13 +39,6 @@ class RNSpeechace {
     formData?: FormData,
     configs?: SpeechConfigs
   ): Promise<void> {
-    // if (!this._listeners) {
-    //   this._listeners = (Object.keys(
-    //     this._events
-    //   ) as SpeechEvent[]).map((key) =>
-    //     VoiceEmitter.addListener(key, this._events[key])
-    //   );
-    // }
     return await SpeechaceModule.start(
       Object.assign({ dialect: 'en-us' }, queryParams),
       formData,
@@ -118,27 +96,32 @@ class RNSpeechace {
     return VoiceEmitter.addListener('onVoiceStart', fn);
   };
 
-  onVoice(fn: (data: VoiceEvent) => void) {
+  onVoice(fn: (data: VoiceEvent) => void): EmitterSubscription {
     return VoiceEmitter.addListener('onVoice', fn);
   }
 
-  onVoiceEnd(fn: () => void) {
+  onVoiceEnd(fn: () => void): EmitterSubscription {
     return VoiceEmitter.addListener('onVoiceEnd', fn);
   }
 
-  onError(fn: (error: ErrorEvent) => void) {
+  onError(fn: (error: ErrorEvent) => void): EmitterSubscription {
     return VoiceEmitter.addListener('onError', fn);
   }
 
-  onSpeechRecognized(fn: (event: SpeechRecognizedEvent) => void) {
+  onSpeechRecognized(
+    fn: (event: SpeechRecognizedEvent) => void
+  ): EmitterSubscription {
     return VoiceEmitter.addListener('onSpeechRecognized', fn);
   }
 
-  onModuleStateChange(fn: (e: StateChangeEvent) => void) {
+  onModuleStateChange(fn: (e: StateChangeEvent) => void): EmitterSubscription {
     return VoiceEmitter.addListener('onModuleStateChange', fn);
   }
 
-  addListener(event: SpeechEvent, handler: (payload: any) => void) {
+  addListener(
+    event: SpeechEvent,
+    handler: (payload: any) => void
+  ): EmitterSubscription {
     return VoiceEmitter.addListener(event, handler);
   }
 }
