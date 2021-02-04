@@ -135,14 +135,12 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   fun prepare(filePath: String, key: Double, promise: Promise) {
     val player = createMediaPlayer(filePath)
     if (player == null) {
-      val e = Arguments.createMap()
-      e.putInt("code", -1)
-      e.putString("message", "resource not found")
       promise.reject("player error", "Can't prepare player for path $filePath")
       return
     }
     players[key] = player
     player.prepare()
+    promise.resolve("")
   }
 
 
@@ -174,6 +172,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       true
     }
     player.start()
+    promise.resolve("")
     val params = Arguments.createMap()
     params.putDouble("key", key)
     params.putDouble("isPlaying", 1.0)
@@ -193,8 +192,6 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     val params = Arguments.createMap()
     params.putDouble("key", key)
     params.putDouble("isPlaying", 0.0)
-    sendJSEvent(moduleEvents.onError, params)
-
     sendJSEvent(moduleEvents.onPlayerStateChange, params)
   }
 
@@ -209,8 +206,6 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     val params = Arguments.createMap()
     params.putDouble("key", key)
     params.putDouble("isPlaying", 0.0)
-    sendJSEvent(moduleEvents.onError, params)
-
     sendJSEvent(moduleEvents.onPlayerStateChange, params)
   }
 
