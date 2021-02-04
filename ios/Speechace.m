@@ -2,11 +2,13 @@
 #import "RCTConvert.h"
 
 NSString* GetDirectoryOfType_Sound(NSSearchPathDirectory dir) {
-  NSArray* paths = NSSearchPathForDirectoriesInDomains(dir, NSUserDomainMask, YES);
-  return [paths.firstObject stringByAppendingString:@"/"];
+    NSArray* paths = NSSearchPathForDirectoriesInDomains(dir, NSUserDomainMask, YES);
+    return [paths.firstObject stringByAppendingString:@"/"];
 }
 
-@implementation Speechace
+@implementation Speechace {
+    NSMutableDictionary *_players;
+}
 
 RCT_EXPORT_MODULE()
 
@@ -49,6 +51,10 @@ RCT_EXPORT_METHOD(start:(NSDictionary *)params formData:(NSDictionary *)formData
         [self cancelRequestTask];
     }
     
+    if(_key) {
+        [[self playerForKey:_key] stop];
+    }
+    
     if (formData[@"audioFile"] != nil) {
         _filePath = formData[@"audioFile"];
     }
@@ -65,8 +71,8 @@ RCT_EXPORT_METHOD(start:(NSDictionary *)params formData:(NSDictionary *)formData
         
         _state = StateRecording;
         
-        NSString *fileName = [NSString stringWithFormat:@"%f%@",[[NSDate date] timeIntervalSince1970] * 1000, @".wav"];
-//        NSString *docDir = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
+        NSString *fileName = [NSString stringWithFormat:@"%@%@",[[NSProcessInfo processInfo] globallyUniqueString], @".wav"];
+        //        NSString *docDir = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
         _filePath = [NSString stringWithFormat:@"%@", [GetDirectoryOfType_Sound(NSCachesDirectory) stringByAppendingString:fileName]];
         
         // most audio players set session category to "Playback", record won't work in this mode
@@ -128,9 +134,177 @@ RCT_EXPORT_METHOD(cancel:(RCTPromiseResolveBlock)resolve rejecter:(__unused RCTP
     [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state}];
 }
 
+RCT_EXPORT_METHOD(setVolume:(double) volume withKey:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock) resolve reject:(RCTPromiseRejectBlock) reject) {
+    [[self playerForKey:key] setVolume: volume];
+    resolve(@"");
+}
+
+RCT_EXPORT_METHOD(prepare:(NSString *)filePath withKey:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject) {
+    NSError *error;
+    NSString * audioFile = filePath != nil ? filePath : _filePath;
+    
+    NSLog(@"prepare for path%@", audioFile);
+    if (!audioFile) {
+        reject(@"file error", @"There no audio file for playback", nil);
+        return;
+    }
+    NSURL *audioFileURL;
+    if ([audioFile rangeOfString:@"file://"].location == NSNotFound) {
+        audioFileURL = [NSURL fileURLWithPath:audioFile];
+    } else {
+        audioFileURL = [NSURL URLWithString:audioFile];
+    }
+    
+    RCTLogInfo(@"audio player alloc");
+    AVAudioPlayer *audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:audioFileURL error:&error];
+
+    if (audioPlayer) {
+        @synchronized(self) {
+            audioPlayer.delegate = self;
+            audioPlayer.enableRate = YES;
+            [audioPlayer prepareToPlay];
+            [[self players] setObject:audioPlayer forKey:key];
+            resolve(@"");
+        }
+    } else {
+        reject(@"player error", [NSString stringWithFormat:@"Can't prepare player for path %@", audioFile], error);
+    }
+}
+
+
+RCT_EXPORT_METHOD(play:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject) {
+    NSLog(@"%@", key);
+    AVAudioPlayer *player = [self playerForKey:key];
+    if (player) {
+        [[AVAudioSession sharedInstance]
+            setCategory: AVAudioSessionCategoryPlayback
+            error: nil];
+        [[NSNotificationCenter defaultCenter]
+            addObserver:self
+               selector:@selector(audioSessionChangeObserver:)
+                   name:AVAudioSessionRouteChangeNotification
+                 object:nil];
+        _key = key;
+        [player play];
+        resolve(@"");
+        [self sendEventWithName:@"onPlayerStateChange" body:@{@"key": _key, @"isPlaying": [NSNumber numberWithBool:[player isPlaying]]}];
+    } else {
+        reject(@"player error", @"AudioPlayer not started yet", nil);
+    }
+}
+
+
+RCT_EXPORT_METHOD(pause:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject) {
+    RCTLogInfo(@"pause");
+    AVAudioPlayer *audioPlayer = [self playerForKey:key];
+    if (audioPlayer && [audioPlayer isPlaying]) {
+        [audioPlayer pause];
+        resolve(@"");
+        [self sendEventWithName:@"onPlayerStateChange" body:@{@"key": key, @"isPlaying": [NSNumber numberWithBool:[audioPlayer isPlaying]]}];
+    } else {
+        reject(@"player error", @"AudioPlayer not started yet", nil);
+    }
+}
+
+RCT_EXPORT_METHOD(seek:(nonnull NSNumber*)time withKey:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject) {
+    AVAudioPlayer *audioPlayer = [self playerForKey:key];
+    if (audioPlayer) {
+        audioPlayer.currentTime = [time doubleValue];
+        resolve(@"");
+    } else {
+        reject(@"player error", @"AudioPlayer not started yet", nil);
+    }
+}
+
+RCT_EXPORT_METHOD(stopPlayer:(nonnull NSNumber *)key resolver:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject) {
+    AVAudioPlayer *audioPlayer = [self playerForKey:key];
+    if (audioPlayer) {
+        [audioPlayer stop];
+        resolve(@"");
+        [self sendEventWithName:@"onPlayerStateChange" body:@{@"key": key, @"isPlaying": [NSNumber numberWithBool:[audioPlayer isPlaying]]}];
+    } else {
+        reject(@"player error", @"AudioPlayer not started yet", nil);
+    }
+}
+
+RCT_EXPORT_METHOD(release : (nonnull NSNumber *)key) {
+    @synchronized(self) {
+        AVAudioPlayer *player = [self playerForKey:key];
+        if (player) {
+            [player stop];
+            [[self players] removeObjectForKey:key];
+            NSNotificationCenter *notificationCenter =
+                [NSNotificationCenter defaultCenter];
+            [notificationCenter removeObserver:self];
+        }
+    }
+}
+
+- (void)audioSessionChangeObserver:(NSNotification *)notification {
+    NSDictionary *userInfo = notification.userInfo;
+    AVAudioSessionRouteChangeReason audioSessionRouteChangeReason =
+        [userInfo[@"AVAudioSessionRouteChangeReasonKey"] longValue];
+    AVAudioSessionInterruptionType audioSessionInterruptionType =
+        [userInfo[@"AVAudioSessionInterruptionTypeKey"] longValue];
+    AVAudioPlayer *player = [self playerForKey:self.key];
+    if (audioSessionInterruptionType == AVAudioSessionInterruptionTypeEnded) {
+        if (player && player.isPlaying) {
+            [player play];
+        }
+    }
+    if (audioSessionRouteChangeReason ==
+        AVAudioSessionRouteChangeReasonOldDeviceUnavailable) {
+        if (player) {
+            [player pause];
+        }
+    }
+    if (audioSessionInterruptionType == AVAudioSessionInterruptionTypeBegan) {
+        if (player) {
+            [player pause];
+        }
+    }
+}
+
+- (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag {
+    NSLog(@"audioPlayerDidFinishPlaying");
+    NSNumber *key = [self keyForPlayer:player];
+    // Send last event then finish it.
+    
+    [self sendEventWithName:@"onPlayerStateChange" body:@{@"key": key, @"isPlaying": [NSNumber numberWithBool:[player isPlaying]]}];
+}
+
+-(void) releasePlayer:(AVAudioPlayer *)player withKey:(NSNumber *)key {
+    if(player) {
+        [player stop];
+        [[self players] removeObjectForKey:[self keyForPlayer:player]];
+    } else if (key) {
+        AVAudioPlayer *audioPlayer = [self playerForKey:key];
+        [audioPlayer stop];
+        [[self players] removeObjectForKey:key];
+    }
+    NSNotificationCenter *notificationCenter = [NSNotificationCenter defaultCenter];
+    [notificationCenter removeObserver:self];
+    _key = nil;
+}
+
+- (NSMutableDictionary *)players {
+    if (!_players) {
+        _players = [NSMutableDictionary new];
+    }
+    return _players;
+}
+
+- (AVAudioPlayer *)playerForKey:(nonnull NSNumber *)key {
+    return [[self players] objectForKey:key];
+}
+
+- (NSNumber *)keyForPlayer:(nonnull AVAudioPlayer *)player {
+    return [[[self players] allKeysForObject:player] firstObject];
+}
+
 - (void) makeRequest {
     if ([_filePath isEqual: nil]) {
-        [self handleModuleExeption:[NSException exceptionWithName:@"file_empty" reason:@"There no audio file to score!" userInfo:nil]];
+        [self handleModuleExeption:[NSException exceptionWithName:@"file error" reason:@"There no audio file to score!" userInfo:nil]];
         return;
     }
     
@@ -317,7 +491,9 @@ void HandleInputBuffer(void *inUserData,
         @"onVoiceEnd",
         @"onError",
         @"onSpeechRecognized",
-        @"onModuleStateChange"
+        @"onModuleStateChange",
+        @"onPlayerStateChange",
+        @"onPlayerDidFinishPlaying"
     ];
 }
 

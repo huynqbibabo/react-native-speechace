@@ -85,7 +85,15 @@ export interface SpeechEvents {
   onSpeechRecognized?: (e: SpeechRecognizedEvent) => void;
   onModuleStateChange?: (e: StateChangeEvent) => void;
 }
-export type SpeechEvent = keyof SpeechEvents;
+
+export interface PlayerEvent {
+  key: number;
+  isPlaying: number;
+}
+
+export type PLayerEvents = 'onPlayerStateChange' | 'onPlayerDidFinishPlaying';
+
+export type SpeechEvent = keyof SpeechEvents | PLayerEvents;
 
 export interface VoiceEvent {
   size: number;

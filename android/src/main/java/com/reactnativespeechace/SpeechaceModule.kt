@@ -1,5 +1,6 @@
 package com.reactnativespeechace
 
+import android.media.MediaPlayer
 import android.os.CountDownTimer
 import android.util.Log
 import com.facebook.react.bridge.*
@@ -9,6 +10,7 @@ import okhttp3.*
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import kotlin.math.roundToInt
 
 
 /**
@@ -44,12 +46,15 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     var onError: String = "onError"
     var onSpeechRecognized = "onSpeechRecognized"
     var onModuleStateChange = "onModuleStateChange"
+    var onPlayerStateChange = "onPlayerStateChange"
   }
 
   private var state = moduleStates.none
   private var queryParams: MutableMap<String, Any>? = null
   private var formData: MutableMap<String, Any>? = null
   private var configs: MutableMap<String, Any>? = null
+  private var players: MutableMap<Double, MediaPlayer> = HashMap()
+  private var _key: Double? = null
 
   override fun getName(): String {
     return TAG
@@ -126,6 +131,123 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     emitStateChangeEvent()
   }
 
+  @ReactMethod
+  fun prepare(filePath: String, key: Double, promise: Promise) {
+    val player = createMediaPlayer(filePath)
+    if (player == null) {
+      val e = Arguments.createMap()
+      e.putInt("code", -1)
+      e.putString("message", "resource not found")
+      promise.reject("player error", "Can't prepare player for path $filePath")
+      return
+    }
+    players[key] = player
+    player.prepare()
+  }
+
+
+  @ReactMethod
+  fun play(key: Double, promise: Promise) {
+    val player: MediaPlayer = players[key]!!
+    if (player.isPlaying) {
+      promise.reject("player error", "Player")
+      return
+    }
+    _key = key
+    player.setOnCompletionListener { mp ->
+      if (!mp.isLooping) {
+        val params = Arguments.createMap()
+        params.putDouble("key", key)
+        params.putDouble("isPlaying", 0.0)
+        sendJSEvent(moduleEvents.onError, params)
+
+        sendJSEvent(moduleEvents.onPlayerStateChange, params)
+      }
+    }
+    player.setOnErrorListener { _, _, _ ->
+      val params = Arguments.createMap()
+      params.putDouble("key", key)
+      params.putDouble("isPlaying", 0.0)
+      sendJSEvent(moduleEvents.onError, params)
+
+      sendJSEvent(moduleEvents.onPlayerStateChange, params)
+      true
+    }
+    player.start()
+    val params = Arguments.createMap()
+    params.putDouble("key", key)
+    params.putDouble("isPlaying", 1.0)
+    sendJSEvent(moduleEvents.onError, params)
+
+    sendJSEvent(moduleEvents.onPlayerStateChange, params)
+  }
+
+
+  @ReactMethod
+  fun pause(key: Double, promise: Promise) {
+    val player: MediaPlayer? = players[key]
+    if (player != null && player.isPlaying) {
+      player.pause()
+    }
+    promise.resolve("")
+    val params = Arguments.createMap()
+    params.putDouble("key", key)
+    params.putDouble("isPlaying", 0.0)
+    sendJSEvent(moduleEvents.onError, params)
+
+    sendJSEvent(moduleEvents.onPlayerStateChange, params)
+  }
+
+  @ReactMethod
+  fun stopPlayer(key: Double, promise: Promise) {
+    val player: MediaPlayer? = players[key]
+    if (player != null && player.isPlaying) {
+      player.pause()
+      player.seekTo(0)
+    }
+    promise.resolve("")
+    val params = Arguments.createMap()
+    params.putDouble("key", key)
+    params.putDouble("isPlaying", 0.0)
+    sendJSEvent(moduleEvents.onError, params)
+
+    sendJSEvent(moduleEvents.onPlayerStateChange, params)
+  }
+
+
+  @ReactMethod
+  fun release(key: Double) {
+    val player: MediaPlayer? = players[key]
+    if (player != null) {
+      player.reset()
+      player.release()
+      players.remove(key)
+    }
+  }
+
+
+  @ReactMethod
+  fun setVolume(key: Double, left: Double, right: Double) {
+    players[key]?.setVolume(left.toFloat(), right.toFloat())
+  }
+
+
+  @ReactMethod
+  fun seek(key: Double, sec: Double) {
+    players[key]?.seekTo((sec * 1000).roundToInt())
+  }
+
+  private fun createMediaPlayer(filePath: String): MediaPlayer? {
+    val mediaPlayer = MediaPlayer()
+    try {
+      mediaPlayer.setDataSource(filePath)
+    } catch (e: Exception) {
+      Log.e("RNSoundModule", "Exception", e)
+      return null
+    }
+    return mediaPlayer
+  }
+
   private fun makeRequest() {
     if (workingFile == null) {
       handleErrorEvent(Exception("There no audio file to score!"))
@@ -164,7 +286,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       }
       val apiVers = if (queryParams?.getValue("dialect")?.equals("en-bg") == true) "v0.1" else "v0.5"
       val apiPaths = "api/${configs?.getValue("callForAction")}/${configs?.getValue("actionForDatatype")}/${apiVers}/json"
-        urlBuilder.addPathSegments(apiPaths)
+      urlBuilder.addPathSegments(apiPaths)
       val url = urlBuilder.build()
       Log.i(TAG, "makeRequest: $url")
 

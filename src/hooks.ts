@@ -1,11 +1,12 @@
-/**
- *   Get current module state and subsequent updates
- */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SpeechModuleState } from './index';
 import Speechace, { SpeechEvent } from './index';
 import type { EmitterSubscription } from 'react-native';
-
+import type { PlayerEvent } from './types';
+let nextKey = 0;
+/**
+ *   Get current module state and subsequent updates
+ */
 const useModuleState = () => {
   const [state, setState] = useState<SpeechModuleState>('NONE');
 
@@ -75,4 +76,71 @@ const useModuleStateChanges = (handler: (event: SpeechModuleState) => void) => {
   }, [handler]);
 };
 
-export { useModuleState, useSpeechEvent, useModuleStateChanges };
+const usePlayer = (filePath: string) => {
+  const _file = useRef(filePath);
+  const _key = useRef(nextKey++);
+  const [playing, setPlayerState] = useState(false);
+
+  const release = useCallback(() => {
+    Speechace.release(_key.current);
+  }, [_key]);
+  const prepare = useCallback(async () => {
+    await Speechace.prepare(_file.current, _key.current);
+  }, [_key]);
+
+  useEffect(() => {
+    let didCancel = false;
+    const playerSubscription = Speechace.addListener(
+      'onPlayerStateChange',
+      ({ key, isPlaying }: PlayerEvent) => {
+        console.log(key, _key.current, isPlaying);
+        if (key === _key.current && !didCancel) {
+          if (isPlaying) {
+            setPlayerState(true);
+          } else {
+            setPlayerState(false);
+          }
+        }
+      }
+    );
+    prepare();
+    return () => {
+      didCancel = true;
+      release();
+      playerSubscription.remove();
+    };
+  }, [filePath, prepare, release]);
+
+  const play = async () => {
+    await Speechace.play(_key.current);
+  };
+
+  const pause = async () => {
+    await Speechace.pause(_key.current);
+  };
+
+  const stop = async () => {
+    await Speechace.stopPlayer(_key.current);
+  };
+
+  const seek = async (time: number) => {
+    await Speechace.seek(time, _key.current);
+  };
+  const setVolume = async (volume: number) => {
+    return await Speechace.setVolume(volume, _key.current);
+  };
+
+  return {
+    playing,
+    file: _file.current,
+    prepare,
+    play,
+    pause,
+    stop,
+    seek,
+    setVolume,
+    release,
+  };
+};
+
+export { useModuleState, useSpeechEvent, useModuleStateChanges, usePlayer };

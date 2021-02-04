@@ -7,17 +7,18 @@ import SpeechAce, {
   useModuleState,
   VoiceEvent,
 } from 'react-native-speechace';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Button,
+  FlatList,
   PermissionsAndroid,
   SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import Sound from 'react-native-sound';
 import WordHighlight from './WordHighlight';
+import { AudioPlayback } from '../../src/AudioPlayback';
 
 const Separator = () => <View style={styles.separator} />;
 
@@ -61,10 +62,31 @@ const App = () => {
     );
   }, []);
 
-  const [file, setFile] = useState('');
+  const [files, setFile] = useState<string[]>([]);
   const [result, setResult] = useState<SpeechResponse | undefined>(undefined);
   const state = useModuleState();
   const [handleState, setState] = useState<SpeechModuleState>('NONE');
+
+  const onSpeechRecognized = useCallback(
+    (_e: SpeechRecognizedEvent) => {
+      console.log('onSpeechRecognized', _e);
+      setFile([...files, _e.filePath]);
+      if (_e.response.status === 'success') {
+        setResult(_e.response);
+      }
+    },
+    [files]
+  );
+
+  useEffect(() => {
+    const subscriber = SpeechAce.addListener(
+      'onSpeechRecognized',
+      onSpeechRecognized
+    );
+    return () => {
+      subscriber.remove();
+    };
+  }, [onSpeechRecognized]);
 
   useEffect(() => {
     SpeechAce.setApiKey('--APIKEY--');
@@ -72,7 +94,6 @@ const App = () => {
     SpeechAce.onVoiceStart(onVoiceStart);
     SpeechAce.onVoiceEnd(onVoiceEnd);
     SpeechAce.onError(onSpeechError);
-    SpeechAce.onSpeechRecognized(onSpeechRecognized);
     SpeechAce.onModuleStateChange(onModuleStateChange);
     return () => {
       SpeechAce.removeListeners();
@@ -93,14 +114,6 @@ const App = () => {
 
   const onVoiceEnd = () => {
     console.log('onVoiceEnd: ');
-  };
-
-  const onSpeechRecognized = (_e: SpeechRecognizedEvent) => {
-    console.log('onSpeechRecognized', _e);
-    setFile(_e.filePath);
-    if (_e.response.status === 'success') {
-      setResult(_e.response);
-    }
   };
 
   const onModuleStateChange = (e: StateChangeEvent) => {
@@ -135,26 +148,15 @@ const App = () => {
     await SpeechAce.cancel();
   };
 
-  const play = async () => {
-    console.log(file);
-    const audioPlayer = new Sound(file, undefined, (error) => {
-      if (error) {
-        console.log(error);
-      } else {
-        console.log('start playing');
-        audioPlayer.play(() => {
-          audioPlayer.release();
-        });
-      }
-    });
-  };
   return (
     <SafeAreaView style={styles.container}>
       <View style={{ width: '100%' }}>
-        <Text style={styles.title}>Try me: {text}</Text>
+        <Text style={[styles.title, { fontWeight: '600' }]}>
+          Try me: {text}
+        </Text>
         <Text style={styles.title}>State handle: {handleState}</Text>
         <Text style={styles.title}>useModuleState: {state}</Text>
-        <Button title="Press me to Start" onPress={start} />
+        <Button title="Press me to Start" onPress={start} color={'#4F83CC'} />
       </View>
       <Separator />
       <View>
@@ -163,14 +165,17 @@ const App = () => {
             <WordHighlight words={result?.textScore?.wordScoreList} />
           )}
         </View>
-        <Button title="Press to stop" color="#f194ff" onPress={stop} />
+        <Button title="Press to stop" color="#FF5C8D" onPress={stop} />
       </View>
       <Separator />
-      <Button title="Press to Cancel" color="#F2994A" onPress={cancel} />
+      <Button title="Press to Cancel" color="#FFA040" onPress={cancel} />
       <Separator />
-      <View>
-        <Button title="Press to Play" color="#f194ff" onPress={play} />
-      </View>
+      <FlatList
+        style={{ flex: 1 }}
+        data={files}
+        keyExtractor={(item) => item}
+        renderItem={({ item }) => <AudioPlayback filePath={item} />}
+      />
     </SafeAreaView>
   );
 };

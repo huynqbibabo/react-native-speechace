@@ -23,6 +23,7 @@ import type {
   Fluency,
   ChildPhone,
   Metrics,
+  PLayerEvents,
 } from './types';
 
 import { useModuleState, useModuleStateChanges, useSpeechEvent } from './hooks';
@@ -124,6 +125,34 @@ class RNSpeechace {
   ): EmitterSubscription {
     return VoiceEmitter.addListener(event, handler);
   }
+
+  async prepare(filePath: string, key: number) {
+    return await SpeechaceModule.prepare(filePath, key);
+  }
+
+  async play(key: number) {
+    return await SpeechaceModule.play(key);
+  }
+
+  async stopPlayer(key: number) {
+    return await SpeechaceModule.stopPlayer(key);
+  }
+
+  async pause(key: number) {
+    return await SpeechaceModule.pause(key);
+  }
+
+  async seek(time: number, key: number) {
+    return await SpeechaceModule.seek(time, key);
+  }
+
+  async setVolume(volume: number, key: number) {
+    return await SpeechaceModule.setVolume(volume, key);
+  }
+
+  release(key: number) {
+    SpeechaceModule.release(key);
+  }
 }
 
 const Speechace = new RNSpeechace();
@@ -149,4 +178,5 @@ export type {
   Fluency,
   ChildPhone,
   Metrics,
+  PLayerEvents,
 };

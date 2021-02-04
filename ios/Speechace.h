@@ -21,7 +21,7 @@ typedef struct {
 } AQRecordState;
 
 
-@interface Speechace : RCTEventEmitter <RCTBridgeModule>
+@interface Speechace : RCTEventEmitter <RCTBridgeModule, AVAudioPlayerDelegate>
 @property (nonatomic, assign) AQRecordState recordState;
 @property (nonatomic, strong) NSString* state;
 @property (nonatomic, strong) NSString* filePath;
@@ -30,4 +30,8 @@ typedef struct {
 @property (nonatomic, strong) NSDictionary* formData;
 @property (nonatomic, strong) NSDictionary* configs;
 @property (nonatomic, strong) NSURLSessionTask* requestTask;
+@property (nonatomic, weak) NSNumber *key;
+- (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player
+    successfully:(BOOL)flag;
+
 @end
