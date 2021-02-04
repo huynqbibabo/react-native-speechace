@@ -26,7 +26,12 @@ import type {
   PLayerEvents,
 } from './types';
 
-import { useModuleState, useModuleStateChanges, useSpeechEvent } from './hooks';
+import {
+  useModuleState,
+  useModuleStateChanges,
+  useSpeechEvent,
+  usePlayer,
+} from './hooks';
 
 const SpeechaceModule = NativeModules.Speechace;
 const VoiceEmitter = new NativeEventEmitter(SpeechaceModule);
@@ -157,7 +162,7 @@ class RNSpeechace {
 
 const Speechace = new RNSpeechace();
 export default Speechace;
-export { useModuleState, useModuleStateChanges, useSpeechEvent };
+export { useModuleState, useModuleStateChanges, useSpeechEvent, usePlayer };
 export type {
   SpeechConfigs,
   QueryParams,
