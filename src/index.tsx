@@ -24,6 +24,8 @@ import type {
   ChildPhone,
   Metrics,
   PLayerEvents,
+  VoiceStartEvent,
+  VoiceEndEvent,
 } from './types';
 
 import {
@@ -31,6 +33,7 @@ import {
   useModuleStateChanges,
   useSpeechEvent,
   usePlayer,
+  useSpeechRecognizer,
 } from './hooks';
 
 const SpeechaceModule = NativeModules.Speechace;
@@ -41,11 +44,13 @@ class RNSpeechace {
    * Start speech recognize
    */
   async start(
+    channel?: number,
     queryParams?: QueryParams,
     formData?: FormData,
     configs?: SpeechConfigs
   ): Promise<void> {
     return await SpeechaceModule.start(
+      channel || 0,
       Object.assign({ dialect: 'en-us' }, queryParams),
       formData,
       Object.assign(
@@ -58,8 +63,8 @@ class RNSpeechace {
   /**
    * Call this to stop recorder
    */
-  async stop(): Promise<void> {
-    return await SpeechaceModule.stop();
+  async stop(channel?: number): Promise<void> {
+    return await SpeechaceModule.stop(channel || 0);
   }
 
   /**
@@ -83,8 +88,8 @@ class RNSpeechace {
   /**
    * Cancel speech recording or api calling
    */
-  async cancel(): Promise<void> {
-    return await SpeechaceModule.cancel();
+  async cancel(channel?: number): Promise<void> {
+    return await SpeechaceModule.cancel(channel);
   }
 
   /**
@@ -98,7 +103,7 @@ class RNSpeechace {
    * invoke when recorder capture voice in first time
    * @param fn
    */
-  onVoiceStart = (fn: () => void): EmitterSubscription => {
+  onVoiceStart = (fn: (e: VoiceStartEvent) => void): EmitterSubscription => {
     return VoiceEmitter.addListener('onVoiceStart', fn);
   };
 
@@ -106,7 +111,7 @@ class RNSpeechace {
     return VoiceEmitter.addListener('onVoice', fn);
   }
 
-  onVoiceEnd(fn: () => void): EmitterSubscription {
+  onVoiceEnd(fn: (e: VoiceEndEvent) => void): EmitterSubscription {
     return VoiceEmitter.addListener('onVoiceEnd', fn);
   }
 
@@ -162,7 +167,13 @@ class RNSpeechace {
 
 const Speechace = new RNSpeechace();
 export default Speechace;
-export { useModuleState, useModuleStateChanges, useSpeechEvent, usePlayer };
+export {
+  useModuleState,
+  useModuleStateChanges,
+  useSpeechEvent,
+  usePlayer,
+  useSpeechRecognizer,
+};
 export type {
   SpeechConfigs,
   QueryParams,
@@ -184,4 +195,6 @@ export type {
   ChildPhone,
   Metrics,
   PLayerEvents,
+  VoiceStartEvent,
+  VoiceEndEvent,
 };

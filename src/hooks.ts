@@ -1,9 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { SpeechModuleState } from './index';
-import Speechace, { SpeechEvent } from './index';
+import type {
+  SpeechModuleState,
+  SpeechRecognizedEvent,
+  SpeechResponse,
+  StateChangeEvent,
+} from './index';
+import Speechace, {
+  FormData,
+  QueryParams,
+  SpeechConfigs,
+  SpeechEvent,
+} from './index';
 import type { EmitterSubscription } from 'react-native';
 import type { PlayerEvent } from './types';
+
 let nextKey = 0;
+let recognizeChannel = 0;
 /**
  *   Get current module state and subsequent updates
  */
@@ -142,4 +154,84 @@ const usePlayer = (filePath: string) => {
   };
 };
 
-export { useModuleState, useSpeechEvent, useModuleStateChanges, usePlayer };
+const useSpeechRecognizer = ({
+  queryParams,
+  formData,
+  configs,
+}: {
+  queryParams?: QueryParams;
+  formData?: FormData;
+  configs?: SpeechConfigs;
+}) => {
+  const _channel = useRef(recognizeChannel++);
+  const [state, setState] = useState<SpeechModuleState>('NONE');
+  const [audioFile, setAudioFile] = useState<string | null>(null);
+  const [response, setSpeechResponse] = useState<SpeechResponse | null>(null);
+
+  useEffect(() => {
+    let didCancel = false;
+    const channelStateSubscription = Speechace.addListener(
+      'onPlayerStateChange',
+      ({ state: moduleState, channel }: StateChangeEvent) => {
+        if (channel === _channel.current && !didCancel) {
+          setState(moduleState);
+        }
+      }
+    );
+    const recognizeChannelSubscription = Speechace.addListener(
+      'onSpeechRecognized',
+      ({
+        filePath,
+        response: speechResult,
+        channel,
+      }: SpeechRecognizedEvent) => {
+        if (channel === _channel.current && !didCancel) {
+          setAudioFile(filePath);
+          setSpeechResponse(speechResult);
+        }
+      }
+    );
+    return () => {
+      didCancel = true;
+      channelStateSubscription.remove();
+      recognizeChannelSubscription.remove();
+    };
+  }, []);
+
+  const start = async () => {
+    await Speechace.start(
+      _channel.current,
+      Object.assign({ dialect: 'en-us' }, queryParams),
+      formData,
+      Object.assign(
+        { callForAction: 'scoring', actionForDatatype: 'text' },
+        configs
+      )
+    );
+  };
+
+  const stop = async () => {
+    await Speechace.stop(_channel.current);
+  };
+
+  const cancel = async () => {
+    await Speechace.cancel(_channel.current);
+  };
+
+  return {
+    state,
+    audioFile,
+    response,
+    start,
+    stop,
+    cancel,
+  };
+};
+
+export {
+  useModuleState,
+  useSpeechEvent,
+  useModuleStateChanges,
+  usePlayer,
+  useSpeechRecognizer,
+};

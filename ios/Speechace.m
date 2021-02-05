@@ -8,6 +8,7 @@ NSString* GetDirectoryOfType_Sound(NSSearchPathDirectory dir) {
 
 @implementation Speechace {
     NSMutableDictionary *_players;
+    NSNumber *_channel;
 }
 
 RCT_EXPORT_MODULE()
@@ -39,7 +40,7 @@ RCT_EXPORT_METHOD(getState:(RCTPromiseResolveBlock)resolve rejecter:(__unused RC
     resolve(_state);
 }
 
-RCT_EXPORT_METHOD(start:(NSDictionary *)params formData:(NSDictionary *)formData configs:(NSDictionary *)configs resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+RCT_EXPORT_METHOD(start:(nonnull NSNumber *)channel params:(NSDictionary *)params formData:(NSDictionary *)formData configs:(NSDictionary *)configs resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
     if (!_apiKey) {
         reject(@"api_missing", @"Set a valid api key to start!", nil);
         return;
@@ -58,7 +59,7 @@ RCT_EXPORT_METHOD(start:(NSDictionary *)params formData:(NSDictionary *)formData
     if (formData[@"audioFile"] != nil) {
         _filePath = formData[@"audioFile"];
     }
-    
+    _channel = channel;
     if (_filePath != nil) {
         resolve(@{});
         [self makeRequest];
@@ -94,7 +95,7 @@ RCT_EXPORT_METHOD(start:(NSDictionary *)params formData:(NSDictionary *)formData
         AudioQueueStart(_recordState.mQueue, NULL);
         
         resolve(@{});
-        [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state}];
+        [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state, @"channel": _channel}];
         
         if (configs[@"audioLengthInSeconds"] != nil) {
             NSInteger timeIntervalInSeconds = [RCTConvert NSInteger:configs[@"audioLengthInSeconds"]];
@@ -107,8 +108,9 @@ RCT_EXPORT_METHOD(start:(NSDictionary *)params formData:(NSDictionary *)formData
     }
 }
 
-RCT_EXPORT_METHOD(stop:(RCTPromiseResolveBlock)resolve rejecter:(__unused RCTPromiseRejectBlock)reject) {
+RCT_EXPORT_METHOD(stop:(nonnull NSNumber *)channel resolve:(RCTPromiseResolveBlock)resolve rejecter:(__unused RCTPromiseRejectBlock)reject) {
     @try {
+        _channel = channel;
         [self stopRecording];
         
         resolve(@{});
@@ -116,7 +118,7 @@ RCT_EXPORT_METHOD(stop:(RCTPromiseResolveBlock)resolve rejecter:(__unused RCTPro
             [self makeRequest];
         } else {
             _state = StateNone;
-            [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state}];
+            [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state, @"channel": _channel}];
         }
     }
     @catch (NSException * e) {
@@ -125,13 +127,13 @@ RCT_EXPORT_METHOD(stop:(RCTPromiseResolveBlock)resolve rejecter:(__unused RCTPro
     }
 }
 
-RCT_EXPORT_METHOD(cancel:(RCTPromiseResolveBlock)resolve rejecter:(__unused RCTPromiseRejectBlock)reject) {
+RCT_EXPORT_METHOD(cancel:(nonnull NSNumber *)channel resolve:(RCTPromiseResolveBlock)resolve rejecter:(__unused RCTPromiseRejectBlock)reject) {
     [self stopRecording];
     [self releaseResouce];
     [self cancelRequestTask];
     _state = StateNone;
     resolve(@{});
-    [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state}];
+    [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state, @"channel": channel}];
 }
 
 RCT_EXPORT_METHOD(setVolume:(double) volume withKey:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock) resolve reject:(RCTPromiseRejectBlock) reject) {
@@ -324,7 +326,7 @@ RCT_EXPORT_METHOD(release : (nonnull NSNumber *)key) {
     }
     
     _state = StateRecognizing;
-    [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state}];
+    [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state, @"channel": _channel}];
     @try {
         NSURLComponents *urlBuilder = [[NSURLComponents alloc] init];
         urlBuilder.scheme = @"https";
@@ -389,13 +391,14 @@ RCT_EXPORT_METHOD(release : (nonnull NSNumber *)key) {
             } else {
                 NSError * jsonError = nil;
                 NSDictionary *dictionary = [NSJSONSerialization  JSONObjectWithData:data options:kNilOptions error:&jsonError];
-                NSDictionary *response = @{@"response": [self dictionaryWithCamelCaseKeys: dictionary], @"filePath": self->_filePath};
+                NSDictionary *response = @{@"response": [self dictionaryWithCamelCaseKeys: dictionary], @"filePath": self->_filePath, @"channel": self->_channel};
                 [self sendEventWithName:@"onSpeechRecognized" body:response];
             }
             
             self->_state = StateNone;
-            [self sendEventWithName:@"onModuleStateChange" body:@{@"state": StateNone}];
+            [self sendEventWithName:@"onModuleStateChange" body:@{@"state": StateNone, @"channel": self->_channel}];
             self->_filePath = nil;
+            self->_channel = nil;
         }];
         [_requestTask resume];
     } @catch (NSException * e) {
@@ -435,7 +438,7 @@ void HandleInputBuffer(void *inUserData,
             [self releaseResouce];
             
             self->_state = StateNone;
-            [self sendEventWithName:@"onModuleStateChange" body:@{@"state": self->_state}];
+            [self sendEventWithName:@"onModuleStateChange" body:@{@"state": self->_state, @"channel": self->_channel}];
         }
     });
 }
@@ -472,30 +475,8 @@ void HandleInputBuffer(void *inUserData,
     [self releaseResouce];
     [self cancelRequestTask];
     _state = StateNone;
-    [self sendJSEvent:@{@"-1": e.reason} :nil :nil :nil :nil];
-    [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state}];
-}
-
-- (void) sendJSEvent:(NSDictionary*)error :(NSString*)startState :(NSArray*)transcriptions :(NSNumber*)isFinal :(NSDictionary*)speechResponse {
-    if (error != nil) {
-        [self sendEventWithName:@"onError" body:@{@"error": error}];
-    }
-    
-    if (startState != nil) {
-        [self sendEventWithName:@"onVoiceStart" body:startState];
-    }
-    
-    if (transcriptions != nil) {
-        [self sendEventWithName:@"onVoiceEnd" body:nil];
-    }
-    
-    if (isFinal != nil) {
-        [self sendEventWithName:@"onVoice" body: @{@"isFinal": isFinal}];
-    }
-    
-    if (speechResponse != nil) {
-        [self sendEventWithName:@"onSpeechRecognized" body:speechResponse];
-    }
+    [self sendEventWithName:@"onError" body:@{@"error": e.reason}];
+    [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state,  @"channel": _channel}];
 }
 
 - (NSArray<NSString *> *)supportedEvents

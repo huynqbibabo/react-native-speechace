@@ -2,7 +2,6 @@ package com.reactnativespeechace
 
 import android.content.res.AssetFileDescriptor
 import android.media.AudioAttributes
-import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.CountDownTimer
 import android.util.Log
@@ -57,7 +56,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   private var formData: MutableMap<String, Any>? = null
   private var configs: MutableMap<String, Any>? = null
   private var players: MutableMap<Double, MediaPlayer> = HashMap()
-  private var _key: Double? = null
+  private var _channel: Double? = null
 
   override fun getName(): String {
     return TAG
@@ -74,12 +73,13 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   }
 
   @ReactMethod
-  fun start(params: ReadableMap, formParams: ReadableMap?, callOptions: ReadableMap?, promise: Promise) {
+  fun start(channel: Double, params: ReadableMap, formParams: ReadableMap?, callOptions: ReadableMap?, promise: Promise) {
     if (apiKey.isNullOrEmpty()) promise.reject("api_missing", "Set a valid api key to start!")
     if (state != moduleStates.none) {
       stopVoiceRecorder()
       releaseResources()
     }
+    _channel = channel
     queryParams = params.toHashMap()
     if (formParams != null) {
       if (formParams.getString("user_audio_file") != null) {
@@ -108,8 +108,9 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   }
 
   @ReactMethod
-  fun stop(promise: Promise) {
+  fun stop(channel: Double, promise: Promise) {
     synchronized(Any()) {
+      _channel = channel
       stopVoiceRecorder()
       if (mRecordTimer != null) {
         mRecordTimer?.cancel()
@@ -126,7 +127,8 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   }
 
   @ReactMethod
-  fun cancel(promise: Promise) {
+  fun cancel(channel: Double, promise: Promise) {
+    _channel = channel
     stopVoiceRecorder()
     releaseResources()
     promise.resolve(null)
@@ -158,7 +160,6 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       promise.reject("player error", "Player")
       return
     }
-    _key = key
     player.setOnCompletionListener { mp ->
       if (!mp.isLooping) {
         val params = Arguments.createMap()
@@ -324,6 +325,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       val params = Arguments.createMap()
       params.putString("filePath", workingFile)
       params.putMap("response", convertJsonToMap(jObject))
+      params.putDouble("channel", _channel!!)
       sendJSEvent(moduleEvents.onSpeechRecognized, params)
 
       state = moduleStates.none
@@ -449,6 +451,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   private fun emitStateChangeEvent() {
     val params = Arguments.createMap()
     params.putString("state", state)
+    params.putDouble("channel", _channel!!)
     sendJSEvent(moduleEvents.onModuleStateChange, params)
   }
 

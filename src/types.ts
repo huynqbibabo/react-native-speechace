@@ -95,9 +95,17 @@ export type PLayerEvents = 'onPlayerStateChange' | 'onPlayerDidFinishPlaying';
 
 export type SpeechEvent = keyof SpeechEvents | PLayerEvents;
 
-export interface VoiceEvent {
+export interface ChannelSubscription {
+  channel: number;
+}
+
+export interface VoiceStartEvent extends ChannelSubscription {}
+
+export interface VoiceEvent extends ChannelSubscription {
   size: number;
 }
+
+export interface VoiceEndEvent extends ChannelSubscription {}
 
 export interface ErrorEvent {
   error?: {
@@ -110,6 +118,7 @@ export type SpeechModuleState = 'NONE' | 'RECORDING' | 'RECOGNIZING';
 
 export interface StateChangeEvent {
   state: SpeechModuleState;
+  channel: number;
 }
 
 export interface SpeechRecognizedEvent {
@@ -121,6 +130,7 @@ export interface SpeechRecognizedEvent {
    * response from Speechace api
    */
   response: SpeechResponse;
+  channel: number;
 }
 
 export interface QueryParams {
