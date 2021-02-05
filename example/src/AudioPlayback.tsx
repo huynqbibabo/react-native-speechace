@@ -1,4 +1,4 @@
-import { usePlayer } from './hooks';
+import { usePlayer } from '../../src/hooks';
 import React, { useMemo } from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
 

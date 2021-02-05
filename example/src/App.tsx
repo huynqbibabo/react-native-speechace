@@ -18,7 +18,7 @@ import {
   View,
 } from 'react-native';
 import WordHighlight from './WordHighlight';
-import { AudioPlayback } from '../../src/AudioPlayback';
+import { AudioPlayback } from './AudioPlayback';
 
 const Separator = () => <View style={styles.separator} />;
 
@@ -62,7 +62,9 @@ const App = () => {
     );
   }, []);
 
-  const [files, setFile] = useState<string[]>([]);
+  const [files, setFile] = useState<string[]>([
+    'https://cdn.bibabo.vn/audio/v2/3/3e/3e7t1cwpx8m78haaaaa.mp3',
+  ]);
   const [result, setResult] = useState<SpeechResponse | undefined>(undefined);
   const state = useModuleState();
   const [handleState, setState] = useState<SpeechModuleState>('NONE');

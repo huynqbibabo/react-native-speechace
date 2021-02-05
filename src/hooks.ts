@@ -93,7 +93,6 @@ const usePlayer = (filePath: string) => {
     const playerSubscription = Speechace.addListener(
       'onPlayerStateChange',
       ({ key, isPlaying }: PlayerEvent) => {
-        console.log(key, _key.current, isPlaying);
         if (key === _key.current && !didCancel) {
           if (isPlaying) {
             setPlayerState(true);

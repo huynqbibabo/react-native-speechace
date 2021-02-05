@@ -142,21 +142,34 @@ RCT_EXPORT_METHOD(setVolume:(double) volume withKey:(nonnull NSNumber *)key reso
 RCT_EXPORT_METHOD(prepare:(NSString *)filePath withKey:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject) {
     NSError *error;
     NSString * audioFile = filePath != nil ? filePath : _filePath;
+    // [filePath != nil ? filePath : _filePath stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLHostAllowedCharacterSet]];
     
-    NSLog(@"prepare for path%@", audioFile);
+    NSLog(@"prepare for path: %@", audioFile);
     if (!audioFile) {
         reject(@"file error", @"There no audio file for playback", nil);
         return;
     }
+    AVAudioPlayer *audioPlayer;
     NSURL *audioFileURL;
-    if ([audioFile rangeOfString:@"file://"].location == NSNotFound) {
-        audioFileURL = [NSURL fileURLWithPath:audioFile];
-    } else {
+    if ([audioFile hasPrefix:@"http"]) {
+        audioFileURL = [[NSURLComponents alloc] initWithString:audioFile].URL;
+        NSData *data = [NSData dataWithContentsOfURL:audioFileURL];
+        audioPlayer = [[AVAudioPlayer alloc] initWithData:data error:&error];
+    } else if ([audioFile hasPrefix:@"ipod-library://"] || [audioFile hasPrefix:@"file://"]) {
         audioFileURL = [NSURL URLWithString:audioFile];
+        audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:audioFileURL error:&error];
+    } else {
+        audioFileURL = [NSURL fileURLWithPath:audioFile];
+        audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:audioFileURL error:&error];
     }
+//    if ([audioFile rangeOfString:@"file://"].location == NSNotFound) {
+//        audioFileURL = [NSURL fileURLWithPath:audioFile];
+//    } else {
+//        audioFileURL = [NSURL URLWithString:audioFile];
+//    }
     
     RCTLogInfo(@"audio player alloc");
-    AVAudioPlayer *audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:audioFileURL error:&error];
+//    AVAudioPlayer *audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:audioFileURL error:&error];
 
     if (audioPlayer) {
         @synchronized(self) {
@@ -175,13 +188,12 @@ RCT_EXPORT_METHOD(prepare:(NSString *)filePath withKey:(nonnull NSNumber *)key r
 RCT_EXPORT_METHOD(play:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject) {
     NSLog(@"%@", key);
     AVAudioPlayer *player = [self playerForKey:key];
-    AVAudioSession *session = [AVAudioSession sharedInstance];
-    [session setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
-    [session setActive:TRUE error:nil];
     if (player) {
-        [[AVAudioSession sharedInstance]
-            setCategory: AVAudioSessionCategoryPlayback
-            error: nil];
+        
+        AVAudioSession *session = [AVAudioSession sharedInstance];
+        [session setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
+        [session setActive:TRUE error:nil];
+
         [[NSNotificationCenter defaultCenter]
             addObserver:self
                selector:@selector(audioSessionChangeObserver:)

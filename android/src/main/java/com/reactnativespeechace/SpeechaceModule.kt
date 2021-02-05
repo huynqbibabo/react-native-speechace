@@ -1,6 +1,8 @@
 package com.reactnativespeechace
 
+import android.content.res.AssetFileDescriptor
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.CountDownTimer
 import android.util.Log
@@ -179,7 +181,6 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     val params = Arguments.createMap()
     params.putDouble("key", key)
     params.putDouble("isPlaying", 1.0)
-    sendJSEvent(moduleEvents.onError, params)
 
     sendJSEvent(moduleEvents.onPlayerStateChange, params)
   }
@@ -237,6 +238,29 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
 
   private fun createMediaPlayer(filePath: String): MediaPlayer? {
     val mediaPlayer = MediaPlayer()
+    if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
+      try {
+        mediaPlayer.setDataSource(filePath)
+      } catch (e: Exception) {
+        Log.e("RNSoundModule", "Exception", e)
+        return null
+      }
+      return mediaPlayer
+    }
+
+    if (filePath.startsWith("asset:/")) {
+      try {
+        val descriptor: AssetFileDescriptor = reactApplicationContext.assets.openFd(filePath.replace("asset:/", ""))
+        mediaPlayer.setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length)
+        descriptor.close()
+      } catch (e: Exception) {
+        Log.e("RNSoundModule", "Exception", e)
+        return null
+      }
+
+      return mediaPlayer
+    }
+
     try {
       mediaPlayer.setDataSource(filePath)
     } catch (e: Exception) {
