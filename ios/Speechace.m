@@ -175,6 +175,9 @@ RCT_EXPORT_METHOD(prepare:(NSString *)filePath withKey:(nonnull NSNumber *)key r
 RCT_EXPORT_METHOD(play:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject) {
     NSLog(@"%@", key);
     AVAudioPlayer *player = [self playerForKey:key];
+    AVAudioSession *session = [AVAudioSession sharedInstance];
+    [session setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
+    [session setActive:TRUE error:nil];
     if (player) {
         [[AVAudioSession sharedInstance]
             setCategory: AVAudioSessionCategoryPlayback

@@ -1,5 +1,6 @@
 package com.reactnativespeechace
 
+import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.os.CountDownTimer
 import android.util.Log
@@ -138,6 +139,10 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       promise.reject("player error", "Can't prepare player for path $filePath")
       return
     }
+    player.setAudioAttributes(AudioAttributes.Builder()
+      .setUsage(AudioAttributes.USAGE_MEDIA)
+      .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+      .build())
     players[key] = player
     player.prepare()
     promise.resolve("")
@@ -157,7 +162,6 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         val params = Arguments.createMap()
         params.putDouble("key", key)
         params.putDouble("isPlaying", 0.0)
-        sendJSEvent(moduleEvents.onError, params)
 
         sendJSEvent(moduleEvents.onPlayerStateChange, params)
       }
@@ -166,7 +170,6 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       val params = Arguments.createMap()
       params.putDouble("key", key)
       params.putDouble("isPlaying", 0.0)
-      sendJSEvent(moduleEvents.onError, params)
 
       sendJSEvent(moduleEvents.onPlayerStateChange, params)
       true
