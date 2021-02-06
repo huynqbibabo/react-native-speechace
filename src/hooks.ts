@@ -173,7 +173,6 @@ const useSpeechRecognizer = ({
     const channelStateSubscription = Speechace.addListener(
       'onModuleStateChange',
       ({ state: moduleState, channel }: StateChangeEvent) => {
-        console.log('onModuleStateChange', channel, _channel.current);
         if (channel === _channel.current && !didCancel) {
           setState(moduleState);
         }
@@ -186,7 +185,6 @@ const useSpeechRecognizer = ({
         response: speechResult,
         channel,
       }: SpeechRecognizedEvent) => {
-        console.log('onSpeechRecognized', channel, _channel.current);
         if (channel === _channel.current && !didCancel) {
           setAudioFile(filePath);
           setSpeechResponse(speechResult);
