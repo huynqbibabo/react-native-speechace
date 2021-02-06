@@ -11,8 +11,8 @@ export const AudioPlayback = (props: Props) => {
   return useMemo(
     () => (
       <View style={styles.container}>
-        <Text>{props.filePath}</Text>
-        <Text>State: {playing ? 'playing' : 'stop'}</Text>
+        <Text style={{ marginTop: 20 }}>{props.filePath}</Text>
+        <Text>Player State: {playing ? 'playing' : 'stop'}</Text>
         <View style={styles.actions}>
           <Button title="Play" color="#5E92F3" onPress={play} />
           <Button title="Pause" color="#FFB04C" onPress={pause} />
@@ -26,14 +26,30 @@ export const AudioPlayback = (props: Props) => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   actions: {
     flexDirection: 'row',
-    flex: 1,
     justifyContent: 'space-evenly',
     alignItems: 'center',
+  },
+  title: {
+    textAlign: 'center',
+    marginVertical: 8,
+  },
+  fixToText: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  separator: {
+    marginVertical: 8,
+    borderBottomColor: '#737373',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  result: {
+    minHeight: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

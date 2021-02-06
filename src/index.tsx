@@ -64,7 +64,7 @@ class RNSpeechace {
    * Call this to stop recorder
    */
   async stop(channel?: number): Promise<void> {
-    return await SpeechaceModule.stop(channel || 0);
+    return await SpeechaceModule.stop(channel ?? 0);
   }
 
   /**
@@ -89,7 +89,7 @@ class RNSpeechace {
    * Cancel speech recording or api calling
    */
   async cancel(channel?: number): Promise<void> {
-    return await SpeechaceModule.cancel(channel);
+    return await SpeechaceModule.cancel(channel ?? 0);
   }
 
   /**

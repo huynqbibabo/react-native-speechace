@@ -15,7 +15,7 @@ import type { EmitterSubscription } from 'react-native';
 import type { PlayerEvent } from './types';
 
 let nextKey = 0;
-let recognizeChannel = 0;
+let recognizeChannel = 1;
 /**
  *   Get current module state and subsequent updates
  */
@@ -171,8 +171,9 @@ const useSpeechRecognizer = ({
   useEffect(() => {
     let didCancel = false;
     const channelStateSubscription = Speechace.addListener(
-      'onPlayerStateChange',
+      'onModuleStateChange',
       ({ state: moduleState, channel }: StateChangeEvent) => {
+        console.log('onModuleStateChange', channel, _channel.current);
         if (channel === _channel.current && !didCancel) {
           setState(moduleState);
         }
@@ -185,6 +186,7 @@ const useSpeechRecognizer = ({
         response: speechResult,
         channel,
       }: SpeechRecognizedEvent) => {
+        console.log('onSpeechRecognized', channel, _channel.current);
         if (channel === _channel.current && !didCancel) {
           setAudioFile(filePath);
           setSpeechResponse(speechResult);

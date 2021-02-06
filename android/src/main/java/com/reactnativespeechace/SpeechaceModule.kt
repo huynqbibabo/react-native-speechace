@@ -334,6 +334,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       mRequest = null
       mClient = null
       workingFile = null
+      _channel = null
     } catch (e: Exception) {
       handleErrorEvent(e)
     }
