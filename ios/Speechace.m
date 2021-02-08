@@ -104,7 +104,7 @@ RCT_EXPORT_METHOD(start:(nonnull NSNumber *)channel params:(NSDictionary *)param
         AudioQueueStart(_recordState.mQueue, NULL);
         
         resolve(@{});
-        [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state, @"channel": _channel}];
+        [self sendEventWithName:@"onModuleStateChange" body:[NSDictionary dictionaryWithObjectsAndKeys: _state,@"state", channel, @"channel", nil]];
         
         if (configs[@"audioLengthInSeconds"] != nil) {
             NSInteger timeIntervalInSeconds = [RCTConvert NSInteger:configs[@"audioLengthInSeconds"]];
@@ -127,7 +127,7 @@ RCT_EXPORT_METHOD(stop:(nonnull NSNumber *)channel resolve:(RCTPromiseResolveBlo
             [self makeRequest];
         } else {
             _state = StateNone;
-            [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state, @"channel": _channel}];
+            [self sendEventWithName:@"onModuleStateChange" body:[NSDictionary dictionaryWithObjectsAndKeys: _state,@"state", channel, @"channel", nil]];
         }
     }
     @catch (NSException * e) {
@@ -142,7 +142,7 @@ RCT_EXPORT_METHOD(cancel:(nonnull NSNumber *)channel resolve:(RCTPromiseResolveB
     [self cancelRequestTask];
     _state = StateNone;
     resolve(@{});
-    [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state, @"channel": channel}];
+    [self sendEventWithName:@"onModuleStateChange" body:[NSDictionary dictionaryWithObjectsAndKeys: _state,@"state", channel, @"channel", nil]];
 }
 
 RCT_EXPORT_METHOD(clear:(RCTPromiseResolveBlock)resolve rejecter:(__unused RCTPromiseRejectBlock)reject) {
@@ -235,7 +235,7 @@ RCT_EXPORT_METHOD(play:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock)r
         _key = key;
         [player play];
         resolve(@"");
-        [self sendEventWithName:@"onPlayerStateChange" body:@{@"key": _key, @"isPlaying": [NSNumber numberWithBool:[player isPlaying]]}];
+        [self sendEventWithName:@"onPlayerStateChange" body:[NSDictionary dictionaryWithObjectsAndKeys: key,@"key", [NSNumber numberWithBool:[player isPlaying]], @"isPlaying", nil]];
     } else {
         reject(@"player error", @"AudioPlayer not started yet", nil);
     }
@@ -248,7 +248,7 @@ RCT_EXPORT_METHOD(pause:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock)
     if (audioPlayer && [audioPlayer isPlaying]) {
         [audioPlayer pause];
         resolve(@"");
-        [self sendEventWithName:@"onPlayerStateChange" body:@{@"key": key, @"isPlaying": [NSNumber numberWithBool:[audioPlayer isPlaying]]}];
+        [self sendEventWithName:@"onPlayerStateChange" body:[NSDictionary dictionaryWithObjectsAndKeys:key,@"key", [NSNumber numberWithBool:[audioPlayer isPlaying]], @"isPlaying", nil]];
     } else {
         reject(@"player error", @"AudioPlayer not started yet", nil);
     }
@@ -269,7 +269,8 @@ RCT_EXPORT_METHOD(stopPlayer:(nonnull NSNumber *)key resolver:(RCTPromiseResolve
     if (audioPlayer) {
         [audioPlayer stop];
         resolve(@"");
-        [self sendEventWithName:@"onPlayerStateChange" body:@{@"key": key, @"isPlaying": [NSNumber numberWithBool:[audioPlayer isPlaying]]}];
+        NSDictionary *payload = [NSDictionary dictionaryWithObjectsAndKeys: key,@"key", [NSNumber numberWithBool:[audioPlayer isPlaying]], @"isPlaying", nil];
+        [self sendEventWithName:@"onPlayerStateChange" body:payload];
     } else {
         reject(@"player error", @"AudioPlayer not started yet", nil);
     }
@@ -318,8 +319,8 @@ RCT_EXPORT_METHOD(release : (nonnull NSNumber *)key) {
     NSLog(@"audioPlayerDidFinishPlaying");
     NSNumber *key = [self keyForPlayer:player];
     // Send last event then finish it.
-    
-    [self sendEventWithName:@"onPlayerStateChange" body:@{@"key": key, @"isPlaying": [NSNumber numberWithBool:[player isPlaying]]}];
+    NSDictionary *payload = [NSDictionary dictionaryWithObjectsAndKeys:key,@"key",  [NSNumber numberWithBool:[player isPlaying]], @"isPlaying", nil];
+    [self sendEventWithName:@"onPlayerStateChange" body:payload];
 }
 
 -(void) releasePlayer:(AVAudioPlayer *)player withKey:(NSNumber *)key {
@@ -358,7 +359,8 @@ RCT_EXPORT_METHOD(release : (nonnull NSNumber *)key) {
     }
     
     _state = StateRecognizing;
-    [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state, @"channel": _channel}];
+    NSDictionary *payload = [NSDictionary dictionaryWithObjectsAndKeys: _state,@"state", _channel, @"channel", nil];
+    [self sendEventWithName:@"onModuleStateChange" body:payload];
     @try {
         NSURLComponents *urlBuilder = [[NSURLComponents alloc] init];
         urlBuilder.scheme = @"https";
@@ -428,7 +430,8 @@ RCT_EXPORT_METHOD(release : (nonnull NSNumber *)key) {
             }
             
             self->_state = StateNone;
-            [self sendEventWithName:@"onModuleStateChange" body:@{@"state": StateNone, @"channel": self->_channel}];
+            NSDictionary *payload = [NSDictionary dictionaryWithObjectsAndKeys: self->_state,@"state", self->_channel, @"channel", nil];
+            [self sendEventWithName:@"onModuleStateChange" body:payload];
             self->_filePath = nil;
             self->_channel = nil;
         }];
@@ -458,7 +461,7 @@ void HandleInputBuffer(void *inUserData,
     long nsamples = inBuffer->mAudioDataByteSize;
     //    NSData *data = [NSData dataWithBytes:samples length:nsamples];
     
-    [pRecordState->mSelf sendEventWithName:@"onVoice" body:@{@"size": [NSNumber numberWithShort:*samples], @"length": [NSNumber numberWithLong:(long) nsamples]}];
+    [pRecordState->mSelf sendEventWithName:@"onVoice" body:[NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithShort:*samples],@"size", [NSNumber numberWithLong:(long) nsamples], @"length", nil]];
     
     AudioQueueEnqueueBuffer(pRecordState->mQueue, inBuffer, 0, NULL);
 }
@@ -470,7 +473,7 @@ void HandleInputBuffer(void *inUserData,
             [self releaseResouce];
             
             self->_state = StateNone;
-            [self sendEventWithName:@"onModuleStateChange" body:@{@"state": self->_state, @"channel": self->_channel}];
+            [self sendEventWithName:@"onModuleStateChange" body:[NSDictionary dictionaryWithObjectsAndKeys:self->_state,@"state", self->_channel, @"channel", nil]];
         }
     });
 }
@@ -507,8 +510,8 @@ void HandleInputBuffer(void *inUserData,
     [self releaseResouce];
     [self cancelRequestTask];
     _state = StateNone;
-    [self sendEventWithName:@"onError" body:@{@"error": e.reason, @"channel": _channel}];
-    [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state, @"channel": _channel}];
+    [self sendEventWithName:@"onError" body:[NSDictionary dictionaryWithObjectsAndKeys:e.reason,@"error", self->_channel, @"channel", nil]];
+    [self sendEventWithName:@"onModuleStateChange" body:[NSDictionary dictionaryWithObjectsAndKeys:self->_state,@"state", self->_channel, @"channel", nil]];
 }
 
 - (NSArray<NSString *> *)supportedEvents
