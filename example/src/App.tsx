@@ -1,14 +1,12 @@
-import SpeechAce, {
-  ErrorEvent,
-  SpeechRecognizedEvent,
-  VoiceEvent,
-} from 'react-native-speechace';
+import SpeechAce, { SpeechRecognizedEvent } from 'react-native-speechace';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  Button,
   FlatList,
   PermissionsAndroid,
   SafeAreaView,
   StyleSheet,
+  View,
 } from 'react-native';
 import { AudioPlayback } from './AudioPlayback';
 import { Item } from './Item';
@@ -84,33 +82,20 @@ const App = () => {
 
   useEffect(() => {
     SpeechAce.setApiKey('--APIKEY--');
-    SpeechAce.onVoice(onVoice);
-    SpeechAce.onVoiceStart(onVoiceStart);
-    SpeechAce.onVoiceEnd(onVoiceEnd);
-    SpeechAce.onError(onSpeechError);
     return () => {
-      SpeechAce.removeListeners();
+      SpeechAce.clear();
     };
   }, []);
 
-  const onSpeechError = (_error: ErrorEvent) => {
-    console.log('onSpeechError: ', _error);
-  };
-
-  const onVoiceStart = () => {
-    console.log('onVoiceStart');
-  };
-
-  const onVoice = (_event: VoiceEvent) => {
-    console.log('onVoice', _event);
-  };
-
-  const onVoiceEnd = () => {
-    console.log('onVoiceEnd: ');
+  const clear = async () => {
+    await SpeechAce.clear();
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      <View>
+        <Button title="Clear all" onPress={clear} color={'#4F83CC'} />
+      </View>
       <FlatList
         extraData={state.length}
         ListHeaderComponent={

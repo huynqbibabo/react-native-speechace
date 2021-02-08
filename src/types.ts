@@ -108,6 +108,7 @@ export interface VoiceEvent extends ChannelSubscription {
 export interface VoiceEndEvent extends ChannelSubscription {}
 
 export interface ErrorEvent {
+  channel: number;
   error?: {
     code?: string;
     message?: string;

@@ -136,8 +136,28 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     emitStateChangeEvent()
   }
 
+  @ReactMethod()
+  fun clear(promise: Promise) {
+    for ((key) in players) {
+      val player: MediaPlayer? = players[key]
+      if (player != null) {
+        player.reset()
+        player.release()
+      }
+    }
+    players = HashMap()
+    val path = reactApplicationContext.externalCacheDir?.absolutePath + "/AudioCacheFiles/";
+    val pathAsFile = File(path)
+
+    if (pathAsFile.isDirectory) {
+      pathAsFile.delete()
+    }
+    promise.resolve("")
+  }
+
   @ReactMethod
   fun prepare(filePath: String, key: Double, promise: Promise) {
+    release(key)
     val player = createMediaPlayer(filePath)
     if (player == null) {
       promise.reject("player error", "Can't prepare player for path $filePath")
@@ -155,12 +175,12 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
 
   @ReactMethod
   fun play(key: Double, promise: Promise) {
-    val player: MediaPlayer = players[key]!!
-    if (player.isPlaying) {
+    val player: MediaPlayer? = players[key]
+    if (players.isNotEmpty() && player?.isPlaying == true) {
       promise.reject("player error", "Player")
       return
     }
-    player.setOnCompletionListener { mp ->
+    player?.setOnCompletionListener { mp ->
       if (!mp.isLooping) {
         val params = Arguments.createMap()
         params.putDouble("key", key)
@@ -169,7 +189,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         sendJSEvent(moduleEvents.onPlayerStateChange, params)
       }
     }
-    player.setOnErrorListener { _, _, _ ->
+    player?.setOnErrorListener { _, _, _ ->
       val params = Arguments.createMap()
       params.putDouble("key", key)
       params.putDouble("isPlaying", 0.0)
@@ -177,7 +197,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       sendJSEvent(moduleEvents.onPlayerStateChange, params)
       true
     }
-    player.start()
+    player?.start()
     promise.resolve("")
     val params = Arguments.createMap()
     params.putDouble("key", key)
@@ -411,8 +431,14 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   }
 
   private fun buildFile(): String {
+    val path = reactApplicationContext.externalCacheDir?.absolutePath + "/AudioCacheFiles/";
+    val pathAsFile = File(path)
+
+    if (!pathAsFile.isDirectory) {
+      pathAsFile.mkdir();
+    }
     val fileId = System.currentTimeMillis().toString()
-    val filePath = reactApplicationContext.externalCacheDir?.absolutePath + "/$fileId.wav"
+    val filePath = "$path/$fileId.wav"
     mTempFiles[fileId] = filePath
     return filePath
   }
@@ -459,6 +485,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   private fun sendJSErrorEvent(message: String?) {
     val params = Arguments.createMap()
     params.putString("message", message)
+    params.putDouble("channel", _channel!!)
     sendJSEvent(moduleEvents.onError, params)
   }
 

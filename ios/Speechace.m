@@ -3,7 +3,15 @@
 
 NSString* GetDirectoryOfType_Sound(NSSearchPathDirectory dir) {
     NSArray* paths = NSSearchPathForDirectoriesInDomains(dir, NSUserDomainMask, YES);
-    return [paths.firstObject stringByAppendingString:@"/"];
+    NSString *pathForAudioCacheFiles = [paths.firstObject stringByAppendingString:@"/AudioCacheFiles/"];
+//    [[NSFileManager defaultManager] createDirectoryAtPath:pathForAudioCacheFiles withIntermediateDirectories:YES attributes:nil error:&error];
+    BOOL isDir = NO;
+    NSError *error;
+    if (! [[NSFileManager defaultManager] fileExistsAtPath:pathForAudioCacheFiles isDirectory:&isDir]) {
+        [[NSFileManager defaultManager]createDirectoryAtPath:pathForAudioCacheFiles withIntermediateDirectories:YES attributes:nil error:&error];
+    }
+    NSLog(@"GetDirectoryOfType_Sound Error: %@", error);
+    return pathForAudioCacheFiles;
 }
 
 @implementation Speechace {
@@ -76,6 +84,7 @@ RCT_EXPORT_METHOD(start:(nonnull NSNumber *)channel params:(NSDictionary *)param
         //        NSString *docDir = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
         _filePath = [NSString stringWithFormat:@"%@", [GetDirectoryOfType_Sound(NSCachesDirectory) stringByAppendingString:fileName]];
         
+        NSLog(@"_filePath: %@", _filePath);
         // most audio players set session category to "Playback", record won't work in this mode
         // therefore set session category to "Record" before recording
         [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryRecord error:nil];
@@ -136,12 +145,34 @@ RCT_EXPORT_METHOD(cancel:(nonnull NSNumber *)channel resolve:(RCTPromiseResolveB
     [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state, @"channel": channel}];
 }
 
+RCT_EXPORT_METHOD(clear:(RCTPromiseResolveBlock)resolve rejecter:(__unused RCTPromiseRejectBlock)reject) {
+    @synchronized(self) {
+        [[NSURLCache sharedURLCache] removeAllCachedResponses];
+        NSError *error;
+        [[NSFileManager defaultManager] removeItemAtPath:GetDirectoryOfType_Sound(NSCachesDirectory) error:&error];
+        NSLog(@"%@", error);
+        for (id key in [_players allKeys]) {
+            AVAudioPlayer *player = [self playerForKey:key];
+            if (player) {
+                [player stop];
+                [[self players] removeObjectForKey:key];
+                NSNotificationCenter *notificationCenter = [NSNotificationCenter defaultCenter];
+                [notificationCenter removeObserver:self];
+            }
+        }
+        resolve(@"");
+    }
+}
+
 RCT_EXPORT_METHOD(setVolume:(double) volume withKey:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock) resolve reject:(RCTPromiseRejectBlock) reject) {
     [[self playerForKey:key] setVolume: volume];
     resolve(@"");
 }
 
 RCT_EXPORT_METHOD(prepare:(NSString *)filePath withKey:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject) {
+    if ([self playerForKey:key]) {
+        [self releasePlayer:nil withKey:key];
+    }
     NSError *error;
     NSString * audioFile = filePath != nil ? filePath : _filePath;
     // [filePath != nil ? filePath : _filePath stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLHostAllowedCharacterSet]];
@@ -253,6 +284,7 @@ RCT_EXPORT_METHOD(release : (nonnull NSNumber *)key) {
             NSNotificationCenter *notificationCenter =
                 [NSNotificationCenter defaultCenter];
             [notificationCenter removeObserver:self];
+            NSLog(@"released player for key %@", key);
         }
     }
 }
@@ -389,7 +421,7 @@ RCT_EXPORT_METHOD(release : (nonnull NSNumber *)key) {
                 [self handleModuleExeption:[NSException exceptionWithName:@"request_error" reason:[error localizedDescription] userInfo:nil]];
                 return;
             } else {
-                NSError * jsonError = nil;
+                NSError * jsonError;
                 NSDictionary *dictionary = [NSJSONSerialization  JSONObjectWithData:data options:kNilOptions error:&jsonError];
                 NSDictionary *response = @{@"response": [self dictionaryWithCamelCaseKeys: dictionary], @"filePath": self->_filePath, @"channel": self->_channel};
                 [self sendEventWithName:@"onSpeechRecognized" body:response];
@@ -475,8 +507,8 @@ void HandleInputBuffer(void *inUserData,
     [self releaseResouce];
     [self cancelRequestTask];
     _state = StateNone;
-    [self sendEventWithName:@"onError" body:@{@"error": e.reason}];
-    [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state,  @"channel": _channel}];
+    [self sendEventWithName:@"onError" body:@{@"error": e.reason, @"channel": _channel}];
+    [self sendEventWithName:@"onModuleStateChange" body:@{@"state": _state, @"channel": _channel}];
 }
 
 - (NSArray<NSString *> *)supportedEvents
