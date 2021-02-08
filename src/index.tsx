@@ -37,7 +37,7 @@ import {
 } from './hooks';
 
 const SpeechaceModule = NativeModules.Speechace;
-const VoiceEmitter = new NativeEventEmitter(SpeechaceModule);
+const SpeechaceModuleEmitter = new NativeEventEmitter(SpeechaceModule);
 
 class RNSpeechace {
   /**
@@ -78,11 +78,14 @@ class RNSpeechace {
 
   /**
    * remove all module listeners
+   * clear cache folder
+   * release resources
    */
-  removeListeners() {
+  async clear() {
     (Object.keys({} as SpeechEvents) as SpeechEvent[]).map((key) =>
-      VoiceEmitter.removeAllListeners(key)
+      SpeechaceModuleEmitter.removeAllListeners(key)
     );
+    await SpeechaceModule.clear();
   }
 
   /**
@@ -104,36 +107,36 @@ class RNSpeechace {
    * @param fn
    */
   onVoiceStart = (fn: (e: VoiceStartEvent) => void): EmitterSubscription => {
-    return VoiceEmitter.addListener('onVoiceStart', fn);
+    return SpeechaceModuleEmitter.addListener('onVoiceStart', fn);
   };
 
   onVoice(fn: (data: VoiceEvent) => void): EmitterSubscription {
-    return VoiceEmitter.addListener('onVoice', fn);
+    return SpeechaceModuleEmitter.addListener('onVoice', fn);
   }
 
   onVoiceEnd(fn: (e: VoiceEndEvent) => void): EmitterSubscription {
-    return VoiceEmitter.addListener('onVoiceEnd', fn);
+    return SpeechaceModuleEmitter.addListener('onVoiceEnd', fn);
   }
 
   onError(fn: (error: ErrorEvent) => void): EmitterSubscription {
-    return VoiceEmitter.addListener('onError', fn);
+    return SpeechaceModuleEmitter.addListener('onError', fn);
   }
 
   onSpeechRecognized(
     fn: (event: SpeechRecognizedEvent) => void
   ): EmitterSubscription {
-    return VoiceEmitter.addListener('onSpeechRecognized', fn);
+    return SpeechaceModuleEmitter.addListener('onSpeechRecognized', fn);
   }
 
   onModuleStateChange(fn: (e: StateChangeEvent) => void): EmitterSubscription {
-    return VoiceEmitter.addListener('onModuleStateChange', fn);
+    return SpeechaceModuleEmitter.addListener('onModuleStateChange', fn);
   }
 
   addListener(
     event: SpeechEvent,
     handler: (payload: any) => void
   ): EmitterSubscription {
-    return VoiceEmitter.addListener(event, handler);
+    return SpeechaceModuleEmitter.addListener(event, handler);
   }
 
   async prepare(filePath: string, key: number) {

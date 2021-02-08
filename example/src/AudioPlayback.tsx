@@ -6,7 +6,7 @@ type Props = {
   filePath: string;
 };
 export const AudioPlayback = (props: Props) => {
-  const { playing, play, pause, stop } = usePlayer(props.filePath);
+  const { playing, play, pause, stop, release } = usePlayer(props.filePath);
 
   return useMemo(
     () => (
@@ -17,10 +17,11 @@ export const AudioPlayback = (props: Props) => {
           <Button title="Play" color="#5E92F3" onPress={play} />
           <Button title="Pause" color="#FFB04C" onPress={pause} />
           <Button title="Stop" color="#F05545" onPress={stop} />
+          <Button title="Release" color="#F05545" onPress={release} />
         </View>
       </View>
     ),
-    [pause, play, playing, props.filePath, stop]
+    [pause, play, playing, props.filePath, release, stop]
   );
 };
 

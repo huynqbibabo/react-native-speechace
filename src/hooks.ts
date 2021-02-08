@@ -6,6 +6,7 @@ import type {
   StateChangeEvent,
 } from './index';
 import Speechace, {
+  ErrorEvent,
   FormData,
   QueryParams,
   SpeechConfigs,
@@ -89,18 +90,16 @@ const useModuleStateChanges = (handler: (event: SpeechModuleState) => void) => {
 };
 
 const usePlayer = (filePath: string) => {
-  const _file = useRef(filePath);
+  const _file = useRef<string>('');
   const _key = useRef(nextKey++);
   const [playing, setPlayerState] = useState(false);
 
   const release = useCallback(() => {
     Speechace.release(_key.current);
   }, [_key]);
-  const prepare = useCallback(async () => {
-    await Speechace.prepare(_file.current, _key.current);
-  }, [_key]);
 
   useEffect(() => {
+    _file.current = filePath;
     let didCancel = false;
     const playerSubscription = Speechace.addListener(
       'onPlayerStateChange',
@@ -114,13 +113,13 @@ const usePlayer = (filePath: string) => {
         }
       }
     );
-    prepare();
+    Speechace.prepare(_file.current, _key.current);
     return () => {
       didCancel = true;
       release();
       playerSubscription.remove();
     };
-  }, [filePath, prepare, release]);
+  }, [filePath, release]);
 
   const play = async () => {
     await Speechace.play(_key.current);
@@ -143,8 +142,6 @@ const usePlayer = (filePath: string) => {
 
   return {
     playing,
-    file: _file.current,
-    prepare,
     play,
     pause,
     stop,
@@ -191,10 +188,22 @@ const useSpeechRecognizer = ({
         }
       }
     );
+
+    const recognizeChannelErrorSubscription = Speechace.addListener(
+      'onError',
+      ({ channel, error }: ErrorEvent) => {
+        if (channel === _channel.current && !didCancel) {
+          console.log(error);
+          setState('NONE');
+        }
+      }
+    );
+
     return () => {
       didCancel = true;
       channelStateSubscription.remove();
       recognizeChannelSubscription.remove();
+      recognizeChannelErrorSubscription.remove();
     };
   }, []);
 
