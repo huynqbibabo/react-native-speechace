@@ -87,7 +87,7 @@ RCT_EXPORT_METHOD(start:(nonnull NSNumber *)channel params:(NSDictionary *)param
         NSLog(@"_filePath: %@", _filePath);
         // most audio players set session category to "Playback", record won't work in this mode
         // therefore set session category to "Record" before recording
-        [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryRecord error:nil];
+        [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayAndRecord withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
         
         _recordState.mIsRunning = true;
         _recordState.mCurrentPacket = 0;
@@ -147,6 +147,10 @@ RCT_EXPORT_METHOD(cancel:(nonnull NSNumber *)channel resolve:(RCTPromiseResolveB
 
 RCT_EXPORT_METHOD(clear:(RCTPromiseResolveBlock)resolve rejecter:(__unused RCTPromiseRejectBlock)reject) {
     @synchronized(self) {
+        [self stopRecording];
+        [self releaseResouce];
+        [self cancelRequestTask];
+        _state = StateNone;
         [[NSURLCache sharedURLCache] removeAllCachedResponses];
         NSError *error;
         [[NSFileManager defaultManager] removeItemAtPath:GetDirectoryOfType_Sound(NSCachesDirectory) error:&error];
@@ -224,7 +228,7 @@ RCT_EXPORT_METHOD(play:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock)r
     if (player) {
         
         AVAudioSession *session = [AVAudioSession sharedInstance];
-        [session setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
+        [session setCategory:AVAudioSessionCategoryAmbient withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
         [session setActive:TRUE error:nil];
 
         [[NSNotificationCenter defaultCenter]
@@ -282,8 +286,7 @@ RCT_EXPORT_METHOD(release : (nonnull NSNumber *)key) {
         if (player) {
             [player stop];
             [[self players] removeObjectForKey:key];
-            NSNotificationCenter *notificationCenter =
-                [NSNotificationCenter defaultCenter];
+            NSNotificationCenter *notificationCenter = [NSNotificationCenter defaultCenter];
             [notificationCenter removeObserver:self];
             NSLog(@"released player for key %@", key);
         }
