@@ -4,7 +4,7 @@
 NSString* GetDirectoryOfType_Sound(NSSearchPathDirectory dir) {
     NSArray* paths = NSSearchPathForDirectoriesInDomains(dir, NSUserDomainMask, YES);
     NSString *pathForAudioCacheFiles = [paths.firstObject stringByAppendingString:@"/AudioCacheFiles/"];
-//    [[NSFileManager defaultManager] createDirectoryAtPath:pathForAudioCacheFiles withIntermediateDirectories:YES attributes:nil error:&error];
+    //    [[NSFileManager defaultManager] createDirectoryAtPath:pathForAudioCacheFiles withIntermediateDirectories:YES attributes:nil error:&error];
     BOOL isDir = NO;
     NSError *error;
     if (! [[NSFileManager defaultManager] fileExistsAtPath:pathForAudioCacheFiles isDirectory:&isDir]) {
@@ -38,6 +38,11 @@ RCT_EXPORT_MODULE()
     _recordState.mSelf = self;
     _state = StateNone;
     return self;
+}
+
+- (dispatch_queue_t)methodQueue
+{
+    return dispatch_queue_create("vn.bibabo.ReactNativeSpeechace", DISPATCH_QUEUE_SERIAL);
 }
 
 RCT_EXPORT_METHOD(setApiKey:(NSString *)key) {
@@ -173,52 +178,48 @@ RCT_EXPORT_METHOD(setVolume:(double) volume withKey:(nonnull NSNumber *)key reso
     resolve(@"");
 }
 
-RCT_EXPORT_METHOD(prepare:(NSString *)filePath withKey:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject) {
-    if ([self playerForKey:key]) {
-        [self releasePlayer:nil withKey:key];
-    }
-    NSError *error;
-    NSString * audioFile = filePath != nil ? filePath : _filePath;
-    // [filePath != nil ? filePath : _filePath stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLHostAllowedCharacterSet]];
-    
-    NSLog(@"prepare for path: %@", audioFile);
-    if (!audioFile) {
-        reject(@"file error", @"There no audio file for playback", nil);
-        return;
-    }
-    AVAudioPlayer *audioPlayer;
-    NSURL *audioFileURL;
-    if ([audioFile hasPrefix:@"http"]) {
-        audioFileURL = [[NSURLComponents alloc] initWithString:audioFile].URL;
-        NSData *data = [NSData dataWithContentsOfURL:audioFileURL];
-        audioPlayer = [[AVAudioPlayer alloc] initWithData:data error:&error];
-    } else if ([audioFile hasPrefix:@"ipod-library://"] || [audioFile hasPrefix:@"file://"]) {
-        audioFileURL = [NSURL URLWithString:audioFile];
-        audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:audioFileURL error:&error];
-    } else {
-        audioFileURL = [NSURL fileURLWithPath:audioFile];
-        audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:audioFileURL error:&error];
-    }
-//    if ([audioFile rangeOfString:@"file://"].location == NSNotFound) {
-//        audioFileURL = [NSURL fileURLWithPath:audioFile];
-//    } else {
-//        audioFileURL = [NSURL URLWithString:audioFile];
-//    }
-    
-    RCTLogInfo(@"audio player alloc");
-//    AVAudioPlayer *audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:audioFileURL error:&error];
-
-    if (audioPlayer) {
-        @synchronized(self) {
-            audioPlayer.delegate = self;
-            audioPlayer.enableRate = YES;
-            [audioPlayer prepareToPlay];
-            [[self players] setObject:audioPlayer forKey:key];
-            resolve(@"");
+RCT_EXPORT_METHOD(prepare:(NSString *)filePath withKey:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject)
+{
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        if ([self playerForKey:key]) {
+            [self releasePlayer:nil withKey:key];
         }
-    } else {
-        reject(@"player error", [NSString stringWithFormat:@"Can't prepare player for path %@", audioFile], error);
-    }
+        NSError *error;
+        NSString * audioFile = filePath != nil ? filePath : self->_filePath;
+        // [filePath != nil ? filePath : _filePath stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLHostAllowedCharacterSet]];
+        
+        NSLog(@"prepare for path: %@", audioFile);
+        if (!audioFile) {
+            reject(@"file error", @"There no audio file for playback", nil);
+            return;
+        }
+        AVAudioPlayer *audioPlayer;
+        NSURL *audioFileURL;
+        if ([audioFile hasPrefix:@"http"]) {
+            audioFileURL = [[NSURLComponents alloc] initWithString:audioFile].URL;
+            NSData *data = [NSData dataWithContentsOfURL:audioFileURL];
+            audioPlayer = [[AVAudioPlayer alloc] initWithData:data error:&error];
+        } else if ([audioFile hasPrefix:@"ipod-library://"] || [audioFile hasPrefix:@"file://"]) {
+            audioFileURL = [NSURL URLWithString:audioFile];
+            audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:audioFileURL error:&error];
+        } else {
+            audioFileURL = [NSURL fileURLWithPath:audioFile];
+            audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:audioFileURL error:&error];
+        }
+        RCTLogInfo(@"audio player alloc");
+        
+        if (audioPlayer) {
+            @synchronized(self) {
+                audioPlayer.delegate = self;
+                audioPlayer.enableRate = YES;
+                [audioPlayer prepareToPlay];
+                [[self players] setObject:audioPlayer forKey:key];
+                resolve(@"");
+            }
+        } else {
+            reject(@"player error", [NSString stringWithFormat:@"Can't prepare player for path %@", audioFile], error);
+        }
+    });
 }
 
 
@@ -226,16 +227,15 @@ RCT_EXPORT_METHOD(play:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock)r
     NSLog(@"%@", key);
     AVAudioPlayer *player = [self playerForKey:key];
     if (player) {
-        
         AVAudioSession *session = [AVAudioSession sharedInstance];
-        [session setCategory:AVAudioSessionCategoryAmbient withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
+        [session setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
         [session setActive:TRUE error:nil];
-
+        
         [[NSNotificationCenter defaultCenter]
-            addObserver:self
-               selector:@selector(audioSessionChangeObserver:)
-                   name:AVAudioSessionRouteChangeNotification
-                 object:nil];
+         addObserver:self
+         selector:@selector(audioSessionChangeObserver:)
+         name:AVAudioSessionRouteChangeNotification
+         object:nil];
         _key = key;
         [player play];
         resolve(@"");
@@ -296,9 +296,9 @@ RCT_EXPORT_METHOD(release : (nonnull NSNumber *)key) {
 - (void)audioSessionChangeObserver:(NSNotification *)notification {
     NSDictionary *userInfo = notification.userInfo;
     AVAudioSessionRouteChangeReason audioSessionRouteChangeReason =
-        [userInfo[@"AVAudioSessionRouteChangeReasonKey"] longValue];
+    [userInfo[@"AVAudioSessionRouteChangeReasonKey"] longValue];
     AVAudioSessionInterruptionType audioSessionInterruptionType =
-        [userInfo[@"AVAudioSessionInterruptionTypeKey"] longValue];
+    [userInfo[@"AVAudioSessionInterruptionTypeKey"] longValue];
     AVAudioPlayer *player = [self playerForKey:self.key];
     if (audioSessionInterruptionType == AVAudioSessionInterruptionTypeEnded) {
         if (player && player.isPlaying) {
