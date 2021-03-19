@@ -138,6 +138,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
 
   @ReactMethod()
   fun clear(promise: Promise) {
+    stopVoiceRecorder()
     for ((key) in players) {
       val player: MediaPlayer? = players[key]
       if (player != null) {
@@ -152,24 +153,28 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     if (pathAsFile.isDirectory) {
       pathAsFile.delete()
     }
-    promise.resolve("")
+    promise.resolve(true)
   }
 
   @ReactMethod
   fun prepare(filePath: String, key: Double, promise: Promise) {
-    release(key)
-    val player = createMediaPlayer(filePath)
-    if (player == null) {
-      promise.reject("player error", "Can't prepare player for path $filePath")
-      return
+    try {
+      promise.resolve(true)
+      release(key)
+      val player = createMediaPlayer(filePath)
+      if (player == null) {
+        promise.reject("player error", "Can't prepare player for path $filePath")
+        return
+      }
+      player.setAudioAttributes(AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_MEDIA)
+        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+        .build())
+      players[key] = player
+      player.prepare()
+    } catch (e: Exception) {
+      promise.reject("-1", e.message, e)
     }
-    player.setAudioAttributes(AudioAttributes.Builder()
-      .setUsage(AudioAttributes.USAGE_MEDIA)
-      .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-      .build())
-    players[key] = player
-    player.prepare()
-    promise.resolve("")
   }
 
 
@@ -198,7 +203,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       true
     }
     player?.start()
-    promise.resolve("")
+    promise.resolve(true)
     val params = Arguments.createMap()
     params.putDouble("key", key)
     params.putDouble("isPlaying", 1.0)
@@ -213,7 +218,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
     if (player != null && player.isPlaying) {
       player.pause()
     }
-    promise.resolve("")
+    promise.resolve(true)
     val params = Arguments.createMap()
     params.putDouble("key", key)
     params.putDouble("isPlaying", 0.0)
@@ -227,7 +232,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
       player.pause()
       player.seekTo(0)
     }
-    promise.resolve("")
+    promise.resolve(true)
     val params = Arguments.createMap()
     params.putDouble("key", key)
     params.putDouble("isPlaying", 0.0)
@@ -431,11 +436,11 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   }
 
   private fun buildFile(): String {
-    val path = reactApplicationContext.externalCacheDir?.absolutePath + "/AudioCacheFiles/";
+    val path = reactApplicationContext.externalCacheDir?.absolutePath + "/AudioCacheFiles/"
     val pathAsFile = File(path)
 
     if (!pathAsFile.isDirectory) {
-      pathAsFile.mkdir();
+      pathAsFile.mkdir()
     }
     val fileId = System.currentTimeMillis().toString()
     val filePath = "$path/$fileId.wav"
