@@ -33,7 +33,7 @@ RCT_EXPORT_MODULE()
     _recordState.mDataFormat.mReserved          = 0;
     _recordState.mDataFormat.mFormatID          = kAudioFormatLinearPCM;
     _recordState.mDataFormat.mFormatFlags       = _recordState.mDataFormat.mBitsPerChannel == 8 ? kLinearPCMFormatFlagIsPacked : (kLinearPCMFormatFlagIsSignedInteger | kLinearPCMFormatFlagIsPacked);
-    
+
     _recordState.bufferByteSize = 2048;
     _recordState.mSelf = self;
     _state = StateNone;
@@ -58,17 +58,17 @@ RCT_EXPORT_METHOD(start:(nonnull NSNumber *)channel params:(NSDictionary *)param
         reject(@"api_missing", @"Set a valid api key to start!", nil);
         return;
     }
-    
+
     if (![_state  isEqual: StateNone]) {
         [self stopRecording];
         [self releaseResouce];
         [self cancelRequestTask];
     }
-    
+
     if(_key) {
         [[self playerForKey:_key] stop];
     }
-    
+
     if (formData[@"audioFile"] != nil) {
         _filePath = formData[@"audioFile"];
     }
@@ -82,35 +82,35 @@ RCT_EXPORT_METHOD(start:(nonnull NSNumber *)channel params:(NSDictionary *)param
         _params = params;
         _formData = formData;
         _configs = configs;
-        
+
         _state = StateRecording;
-        
+
         NSString *fileName = [NSString stringWithFormat:@"%@%@",[[NSProcessInfo processInfo] globallyUniqueString], @".wav"];
         //        NSString *docDir = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
         _filePath = [NSString stringWithFormat:@"%@", [GetDirectoryOfType_Sound(NSCachesDirectory) stringByAppendingString:fileName]];
-        
+
         NSLog(@"_filePath: %@", _filePath);
         // most audio players set session category to "Playback", record won't work in this mode
         // therefore set session category to "Record" before recording
         [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayAndRecord withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
-        
+
         _recordState.mIsRunning = true;
         _recordState.mCurrentPacket = 0;
-        
+
         CFURLRef url = CFURLCreateWithString(kCFAllocatorDefault, (CFStringRef)_filePath, NULL);
         AudioFileCreateWithURL(url, kAudioFileWAVEType, &_recordState.mDataFormat, kAudioFileFlags_EraseFile, &_recordState.mAudioFile);
         CFRelease(url);
-        
+
         AudioQueueNewInput(&_recordState.mDataFormat, HandleInputBuffer, &_recordState, NULL, NULL, 0, &_recordState.mQueue);
         for (int i = 0; i < kNumberBuffers; i++) {
             AudioQueueAllocateBuffer(_recordState.mQueue, _recordState.bufferByteSize, &_recordState.mBuffers[i]);
             AudioQueueEnqueueBuffer(_recordState.mQueue, _recordState.mBuffers[i], 0, NULL);
         }
         AudioQueueStart(_recordState.mQueue, NULL);
-        
+
         resolve(@{});
         [self sendEventWithName:@"onModuleStateChange" body:[NSDictionary dictionaryWithObjectsAndKeys: _state,@"state", channel, @"channel", nil]];
-        
+
         if (configs[@"audioLengthInSeconds"] != nil) {
             NSInteger timeIntervalInSeconds = [RCTConvert NSInteger:configs[@"audioLengthInSeconds"]];
             [self startTimer:timeIntervalInSeconds];
@@ -126,7 +126,7 @@ RCT_EXPORT_METHOD(stop:(nonnull NSNumber *)channel resolve:(RCTPromiseResolveBlo
     @try {
         _channel = channel;
         [self stopRecording];
-        
+
         resolve(@{});
         if (_filePath != nil) {
             [self makeRequest];
@@ -187,7 +187,7 @@ RCT_EXPORT_METHOD(prepare:(NSString *)filePath withKey:(nonnull NSNumber *)key r
         NSError *error;
         NSString * audioFile = filePath != nil ? filePath : self->_filePath;
         // [filePath != nil ? filePath : _filePath stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLHostAllowedCharacterSet]];
-        
+
         NSLog(@"prepare for path: %@", audioFile);
         if (!audioFile) {
             reject(@"file error", @"There no audio file for playback", nil);
@@ -207,7 +207,7 @@ RCT_EXPORT_METHOD(prepare:(NSString *)filePath withKey:(nonnull NSNumber *)key r
             audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:audioFileURL error:&error];
         }
         RCTLogInfo(@"audio player alloc");
-        
+
         if (audioPlayer) {
             @synchronized(self) {
                 audioPlayer.delegate = self;
@@ -230,7 +230,7 @@ RCT_EXPORT_METHOD(play:(nonnull NSNumber *)key resolve:(RCTPromiseResolveBlock)r
         AVAudioSession *session = [AVAudioSession sharedInstance];
         [session setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
         [session setActive:TRUE error:nil];
-        
+
         [[NSNotificationCenter defaultCenter]
          addObserver:self
          selector:@selector(audioSessionChangeObserver:)
@@ -360,7 +360,7 @@ RCT_EXPORT_METHOD(release : (nonnull NSNumber *)key) {
         [self handleModuleExeption:[NSException exceptionWithName:@"file error" reason:@"There no audio file to score!" userInfo:nil]];
         return;
     }
-    
+
     _state = StateRecognizing;
     NSDictionary *payload = [NSDictionary dictionaryWithObjectsAndKeys: _state,@"state", _channel, @"channel", nil];
     [self sendEventWithName:@"onModuleStateChange" body:payload];
@@ -368,10 +368,10 @@ RCT_EXPORT_METHOD(release : (nonnull NSNumber *)key) {
         NSURLComponents *urlBuilder = [[NSURLComponents alloc] init];
         urlBuilder.scheme = @"https";
         urlBuilder.host = @"api2.speechace.com";
-        
+
         NSString *apiPaths = [NSString stringWithFormat:@"/api/%@/%@/%@/json", [_configs valueForKey:@"callForAction"], [_configs valueForKey:@"actionForDatatype"], [[_params valueForKey:@"dialect"] isEqual: @"en-gb"] ? @"v0.1" : @"v0.5"];
         urlBuilder.path = apiPaths;
-        
+
         NSArray<NSURLQueryItem *> *queryItems = @[[NSURLQueryItem queryItemWithName:@"key" value:_apiKey]];
         // add url get params
         if (_params.count > 0) {
@@ -383,23 +383,23 @@ RCT_EXPORT_METHOD(release : (nonnull NSNumber *)key) {
         urlBuilder.queryItems = queryItems;
         NSURL *url = urlBuilder.URL;
         NSLog(@"%@", url);
-        
+
         NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:10.0];
-        
+
         [request setCachePolicy:NSURLRequestReloadIgnoringLocalCacheData];
         [request setHTTPShouldHandleCookies:NO];
         [request setTimeoutInterval:60];
         [request setHTTPMethod:@"POST"];
-        
+
         NSString *boundary = @"react-native-speechace";
-        
+
         // set Content-Type in HTTP header
         NSString *contentType = [NSString stringWithFormat:@"multipart/form-data; boundary=%@", boundary];
         [request setValue:contentType forHTTPHeaderField: @"Content-Type"];
-        
+
         // post body
         NSMutableData *body = [NSMutableData data];
-        
+
         // add form data (all params are strings)
         if (_formData.count > 0) {
             for(id key in _formData) {
@@ -411,14 +411,14 @@ RCT_EXPORT_METHOD(release : (nonnull NSNumber *)key) {
                 }
             }
         }
-        
+
         [body appendData:[[NSString stringWithFormat:@"\r\n--%@\r\n",boundary] dataUsingEncoding:NSUTF8StringEncoding]];
         [body appendData:[[NSString stringWithString:[NSString stringWithFormat:@"Content-Disposition: form-data; name=\"user_audio_file\"; filename=%@\r\n", [_filePath stringByDeletingPathExtension]]] dataUsingEncoding:NSUTF8StringEncoding]];
         [body appendData:[@"Content-Type: application/octet-stream\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
         NSData *fileData = [[NSData alloc] initWithContentsOfURL:[NSURL fileURLWithPath:_filePath]];
         [body appendData:[NSData dataWithData:fileData]];
         [body appendData:[[NSString stringWithFormat:@"\r\n--%@--\r\n",boundary] dataUsingEncoding:NSUTF8StringEncoding]];
-        
+
         [request setHTTPBody:body];
         _requestTask = [[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
             if (error) {
@@ -431,7 +431,7 @@ RCT_EXPORT_METHOD(release : (nonnull NSNumber *)key) {
                 NSDictionary *response = @{@"response": [self dictionaryWithCamelCaseKeys: dictionary], @"filePath": self->_filePath, @"channel": self->_channel};
                 [self sendEventWithName:@"onSpeechRecognized" body:response];
             }
-            
+
             self->_state = StateNone;
             NSDictionary *payload = [NSDictionary dictionaryWithObjectsAndKeys: self->_state,@"state", self->_channel, @"channel", nil];
             [self sendEventWithName:@"onModuleStateChange" body:payload];
@@ -451,21 +451,21 @@ void HandleInputBuffer(void *inUserData,
                        UInt32 inNumPackets,
                        const AudioStreamPacketDescription *inPacketDesc) {
     AQRecordState* pRecordState = (AQRecordState *)inUserData;
-    
+
     if (!pRecordState->mIsRunning) {
         return;
     }
-    
+
     if (AudioFileWritePackets(pRecordState->mAudioFile, false, inBuffer->mAudioDataByteSize, inPacketDesc, pRecordState->mCurrentPacket, &inNumPackets, inBuffer->mAudioData) == noErr) {
         pRecordState->mCurrentPacket += inNumPackets;
     }
-    
+
     short *samples = (short *) inBuffer->mAudioData;
     long nsamples = inBuffer->mAudioDataByteSize;
     //    NSData *data = [NSData dataWithBytes:samples length:nsamples];
-    
+
     [pRecordState->mSelf sendEventWithName:@"onVoice" body:[NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithShort:*samples],@"size", [NSNumber numberWithLong:(long) nsamples], @"length", nil]];
-    
+
     AudioQueueEnqueueBuffer(pRecordState->mQueue, inBuffer, 0, NULL);
 }
 
@@ -474,7 +474,7 @@ void HandleInputBuffer(void *inUserData,
         if ([self->_state  isEqual: StateRecording]) {
             [self stopRecording];
             [self releaseResouce];
-            
+
             self->_state = StateNone;
             [self sendEventWithName:@"onModuleStateChange" body:[NSDictionary dictionaryWithObjectsAndKeys:self->_state,@"state", self->_channel, @"channel", nil]];
         }
@@ -568,7 +568,7 @@ void HandleInputBuffer(void *inUserData,
             // The object is not an NSDictionary or NSArray so keep the object as is
             resultObj = obj;
         }
-        
+
         // The result object has been converted and can be added to the dictionary. Note this object may be nested inside a larger dictionary.
         [resultDict setObject:resultObj forKey:[self toCamelCase:key]];
     }];
@@ -590,7 +590,6 @@ void HandleInputBuffer(void *inUserData,
     }
     return resultArray;
 }
-
 
 - (NSString *)toCamelCase:(NSString *)string
 {

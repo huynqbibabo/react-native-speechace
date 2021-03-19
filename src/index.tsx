@@ -99,7 +99,7 @@ class RNSpeechace {
    * get current speech module state
    */
   async getState(): Promise<SpeechModuleState> {
-    return SpeechaceModule.getState();
+    return await SpeechaceModule.getState();
   }
 
   /**
@@ -122,14 +122,14 @@ class RNSpeechace {
     return SpeechaceModuleEmitter.addListener('onError', fn);
   }
 
+  onModuleStateChange(fn: (e: StateChangeEvent) => void): EmitterSubscription {
+    return SpeechaceModuleEmitter.addListener('onModuleStateChange', fn);
+  }
+
   onSpeechRecognized(
     fn: (event: SpeechRecognizedEvent) => void
   ): EmitterSubscription {
     return SpeechaceModuleEmitter.addListener('onSpeechRecognized', fn);
-  }
-
-  onModuleStateChange(fn: (e: StateChangeEvent) => void): EmitterSubscription {
-    return SpeechaceModuleEmitter.addListener('onModuleStateChange', fn);
   }
 
   addListener(
