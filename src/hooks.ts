@@ -93,6 +93,7 @@ const usePlayer = (filePath: string) => {
   const _file = useRef<string>('');
   const _key = useRef(nextKey++);
   const [playing, setPlayerState] = useState(false);
+  const [prepared, preparedState] = useState(false);
 
   const release = useCallback(() => {
     Speechace.release(_key.current);
@@ -113,7 +114,6 @@ const usePlayer = (filePath: string) => {
         }
       }
     );
-    Speechace.prepare(_file.current, _key.current);
     return () => {
       didCancel = true;
       release();
@@ -122,6 +122,10 @@ const usePlayer = (filePath: string) => {
   }, [filePath, release]);
 
   const play = async () => {
+    if (!prepared) {
+      await Speechace.prepare(_file.current, _key.current);
+      preparedState(true);
+    }
     await Speechace.play(_key.current);
   };
 

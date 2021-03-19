@@ -159,7 +159,6 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   @ReactMethod
   fun prepare(filePath: String, key: Double, promise: Promise) {
     try {
-      promise.resolve(true)
       release(key)
       val player = createMediaPlayer(filePath)
       if (player == null) {
@@ -172,6 +171,8 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         .build())
       players[key] = player
       player.prepare()
+
+      promise.resolve(true)
     } catch (e: Exception) {
       promise.reject("-1", e.message, e)
     }
