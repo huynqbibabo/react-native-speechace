@@ -137,7 +137,7 @@ class VoiceRecorder(private var filePath: String, private var waveConfig: WaveCo
     val shortData = ShortArray(data.size / 2)
     ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
       .get(shortData)
-    return shortData.max()?.toInt() ?: 0
+    return shortData.maxOrNull()?.toInt() ?: 0
   }
 
   /** Changes @property filePath to @param newFilePath

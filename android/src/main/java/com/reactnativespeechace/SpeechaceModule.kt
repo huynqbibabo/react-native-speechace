@@ -9,6 +9,8 @@ import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.google.common.base.CaseFormat
 import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -317,7 +319,8 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         }
       }
       formDataBuilder.addFormDataPart("user_audio_file", file.name,
-        RequestBody.create(MediaType.parse("application/octet-stream"), file))
+        file.asRequestBody("application/octet-stream".toMediaTypeOrNull())
+      )
       val body = formDataBuilder.build()
       if (mClient != null) {
         cancelCallWithTag(mClient!!)
@@ -345,7 +348,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
         .method("POST", body)
         .build()
       val response: Response = mClient!!.newCall(mRequest!!).execute()
-      val jsonString: String? = response.body()?.string()
+      val jsonString: String? = response.body?.string()
       val jObject = JSONObject(jsonString!!)
 
       val params = Arguments.createMap()
@@ -356,7 +359,7 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
 
       state = moduleStates.none
       emitStateChangeEvent()
-      response.body()?.close()
+      response.body?.close()
       mRequest = null
       mClient = null
       workingFile = null
@@ -367,10 +370,10 @@ class SpeechaceModule(reactContext: ReactApplicationContext) : ReactContextBaseJ
   }
 
   private fun cancelCallWithTag(client: OkHttpClient) {
-    for (call in client.dispatcher().queuedCalls()) {
+    for (call in client.dispatcher.queuedCalls()) {
       if (call.request().tag()!! == TAG) call.cancel()
     }
-    for (call in client.dispatcher().runningCalls()) {
+    for (call in client.dispatcher.runningCalls()) {
       if (call.request().tag()!! == TAG) call.cancel()
     }
   }
